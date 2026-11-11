@@ -1,0 +1,55 @@
+{
+  "appDisplayName": "알람천국",
+  "projectName": "AlarmApp-iOS",
+  "media": [
+    {
+      "id": "media_puppy_crack",
+      "file": "Media/media_puppy_crack.mp4",
+      "displayName": "와장창 댕댕이",
+      "type": "video",
+      "default": true,
+      "layout": "fullscreen",
+      "loop": true,
+      "muted": true,
+      "width": 1080,
+      "height": 1920,
+      "durationSec": 7
+    }
+  ],
+  "sounds": [
+    {
+      "id": "sound_morning_arrived",
+      "file": "Sounds/sound_morning_arrived.mp3",
+      "displayName": "아침이 왔다잖아",
+      "default": true,
+      "format": "mp3",
+      "displayNamePolicy": "alwaysKorean",
+      "alarmFile": "Sounds/sound_morning_arrived.caf"
+    },
+    {
+      "id": "sound_yarsong",
+      "file": "Sounds/sound_yarsong.mp3",
+      "displayName": "야르송",
+      "default": false,
+      "format": "mp3",
+      "displayNamePolicy": "alwaysKorean",
+      "alarmFile": "Sounds/sound_yarsong.caf"
+    }
+  ],
+  "missions": [
+    {
+      "id": "shake",
+      "defaultCount": 10
+    },
+    {
+      "id": "transcription",
+      "promptsFile": "Copy/transcription_prompts.json"
+    }
+  ],
+  "notes": {
+    "soundDisplayName": "알람 소리 선택 UI에는 displayName(한글)만 노출한다. 앱 언어가 영어여도 소리 이름은 한글 유지.",
+    "media": "type=video 미디어는 알람 실행 화면의 전체 화면 배경으로 음소거·반복 재생한다. 알람 소리는 sounds에서 재생하고, 영상 재생이 알람 소리를 끊지 않게 한다. 날짜·시각(상단 1/3)과 미션 시작(하단)은 영상 위에 올린다.",
+    "bundlePaths": "빌드하면 리소스가 번들 루트로 평탄화되어 복사된다. file 경로는 파일명(lastPathComponent)으로 찾는다.",
+    "alarmSound": "AlarmKit 알람 소리는 alarmFile(.caf, afconvert -f caff -d ima4로 mp3에서 변환)을 쓴다. 원본 mp3는 앱 안 재생용."
+  }
+}

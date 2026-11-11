@@ -1,0 +1,32 @@
+{
+  "version": 3,
+  "languages": ["ko", "en"],
+  "categories": [
+    { "id": "self_affirmation", "displayName": { "ko": "자기 확언", "en": "Self-affirmation" } },
+    { "id": "love", "displayName": { "ko": "사랑", "en": "Love" } },
+    { "id": "study", "displayName": { "ko": "학업", "en": "Study" } },
+    { "id": "motivation", "displayName": { "ko": "동기부여", "en": "Motivation" } }
+  ],
+  "prompts": [
+    { "id": "self_01", "category": "self_affirmation", "text": { "ko": "나는 충분히 잘하고 있어", "en": "I am doing great" } },
+    { "id": "self_02", "category": "self_affirmation", "text": { "ko": "오늘의 나를 믿어", "en": "Trust yourself today" } },
+    { "id": "self_03", "category": "self_affirmation", "text": { "ko": "나는 나를 응원해", "en": "I cheer for myself" } },
+
+    { "id": "love_01", "category": "love", "text": { "ko": "사랑하는 사람을 떠올려", "en": "Think of someone you love" } },
+    { "id": "love_02", "category": "love", "text": { "ko": "고마운 마음을 전하자", "en": "Say thank you today" } },
+    { "id": "love_03", "category": "love", "text": { "ko": "오늘도 다정하게 웃자", "en": "Smile kindly today" } },
+
+    { "id": "study_01", "category": "study", "text": { "ko": "오늘도 한 페이지 더", "en": "One more page today" } },
+    { "id": "study_02", "category": "study", "text": { "ko": "배움은 나를 키운다", "en": "Learning helps me grow" } },
+    { "id": "study_03", "category": "study", "text": { "ko": "집중하면 해낼 수 있어", "en": "Focus and you can do it" } },
+
+    { "id": "motivation_01", "category": "motivation", "text": { "ko": "일어나면 이긴 거야", "en": "Getting up is a win" } },
+    { "id": "motivation_02", "category": "motivation", "text": { "ko": "오늘도 해내자", "en": "Make it happen today" } },
+    { "id": "motivation_03", "category": "motivation", "text": { "ko": "지금 바로 시작하자", "en": "Start right now" } }
+  ],
+  "rules": {
+    "match": "exact_after_trim",
+    "trimWhitespace": true,
+    "caseSensitive": true
+  }
+}
