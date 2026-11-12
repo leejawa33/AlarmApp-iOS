@@ -29,7 +29,7 @@ nonisolated struct AssetCatalog: Decodable, Sendable {
     nonisolated struct Sound: Decodable, Sendable, Identifiable, Hashable {
         let id: String
         let file: String
-        /// 앱 언어와 무관하게 항상 한글로 표시 (displayNamePolicy: alwaysKorean)
+        /// 한국어 표시명(기본값). 화면에는 `Strings.soundName`이 앱 언어에 맞는 이름을 돌려준다.
         let displayName: String
         let isDefault: Bool
         let format: String

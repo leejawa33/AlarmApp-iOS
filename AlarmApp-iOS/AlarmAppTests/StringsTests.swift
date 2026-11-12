@@ -25,8 +25,33 @@ struct StringsTests {
         #expect(try keys("ko") == keys("en"))
     }
 
-    @Test func soundNamesStayKoreanInEnglish() {
-        #expect(Strings(language: "en")["sound_morning_arrived"] == "아침이 왔다잖아")
+    @Test func soundNamesFollowLanguage() throws {
+        let catalog = try AssetCatalog.load()
+        let ko = Strings(language: "ko"), en = Strings(language: "en")
+        for sound in catalog.sounds {
+            #expect(ko.soundName(sound) == sound.displayName, "ko 표시명은 카탈로그와 같아야 함: \(sound.id)")
+            #expect(en.soundName(sound) != sound.displayName, "영어 표시명 누락: \(sound.id)")
+        }
+        let morning = try #require(catalog.sounds.first { $0.id == "sound_morning_arrived" })
+        #expect(en.soundName(morning) == "Morning Has Come")
+    }
+
+    @Test func mediaNamesFollowLanguage() throws {
+        let catalog = try AssetCatalog.load()
+        let ko = Strings(language: "ko"), en = Strings(language: "en")
+        for media in catalog.media {
+            #expect(ko.mediaName(media) == media.displayName, "ko 표시명은 카탈로그와 같아야 함: \(media.id)")
+            #expect(en.mediaName(media) != media.displayName, "영어 표시명 누락: \(media.id)")
+        }
+        let cat = try #require(catalog.media.first { $0.id == "media_cat_push" })
+        #expect(en.mediaName(cat) == "Cat vs. Phone")
+    }
+
+    @Test func mediaNameFallsBackToCatalogName() throws {
+        let unknown = try JSONDecoder().decode(AssetCatalog.Media.self, from: Data("""
+        {"id":"media_unknown","file":"Media/x.mp4","displayName":"새 영상","type":"video","default":false}
+        """.utf8))
+        #expect(Strings(language: "en").mediaName(unknown) == "새 영상")
     }
 
     @Test(arguments: [

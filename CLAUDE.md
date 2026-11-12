@@ -40,6 +40,7 @@ AlarmKit 동작(권한 창, 실제 울림, "미션하러 가기" 버튼)은 **�
 | `UI/` | `MainView`, `AlarmRowView`, `AlarmEditView`, `PromptPickerView`(미션 문장 고르기), `SettingsView`(+`LanguageSettingsView`), `LoopingVideoView`(음소거 반복 영상), `Components`(Block·Chip·CTA 버튼·워드마크·`OpenSettingsButton`) |
 | `UI/Ring/` | `RingView`(실행 화면·미리보기 공용, `RingMode.live/.preview`) → `ShakeMissionView` / `TranscriptionMissionView` → `MissionCompleteView` |
 
+- **다국어(한국어/영어) 필수:** 앞으로 추가하는 모든 기능은 한국어·영어를 함께 지원해야 합니다. 사용자에게 보이는 것은 전부 대상입니다: 화면 문구, 버튼, 에러·권한 안내, 알림(AlarmKit) 문구, 접근성 라벨, 소리·미디어·미션 문장 등 콘텐츠 이름. 한쪽만 넣고 끝내지 말고, 기능을 만들 때 ko/en을 같이 추가하고 `StringsTests` 같은 키 일치·언어 전환 테스트로 확인합니다. 언어 의존 값(날짜·시각·요일·남은 시간)은 `Strings`의 포맷 함수로 처리합니다.
 - UI 문구는 반드시 `Strings`로 가져옵니다(`strings["key"]`, `strings.format("key", [...])`). 새 문구는 **ko/en JSON 양쪽에 같은 키**로 추가합니다(`StringsTests`가 키 일치를 검사).
 - 앱 언어는 `AppSettings.language` → `Strings.setLanguage` → `ContentView`의 `.environment(\.locale, ...)`로 적용됩니다.
 - 실행 화면 큰 시각은 24시간제 `HH:mm`(`RingView.clock`), 리스트 시각은 오전/오후 형식(`Strings.time`)입니다.
@@ -117,8 +118,8 @@ SwiftData가 원본이고 AlarmKit 스케줄은 여기에 동기화합니다. �
 ## 리소스 규칙
 
 - `Resources/assets_catalog.json`이 미디어·소리·미션 목록의 기준입니다. 코드에 하드코딩하지 말고 `AssetCatalog.load()`로 읽어 쓰세요.
-- 미디어 항목은 `type`(video | image), `layout`(fullscreen), `loop`, `muted`를 가집니다. 현재 미디어는 `media_puppy_crack.mp4`(1080×1920, 7초, 무음) 1개이며, `Tools/make_puppy_crack.swift`로 다시 만들 수 있습니다.
-- **소리 표시명은 앱 언어와 상관없이 항상 한글**(`아침이 왔다잖아`, `야르송`)입니다(`displayNamePolicy: alwaysKorean`). 파일명과 id만 영문입니다.
+- 미디어 항목은 `type`(video | image), `layout`(fullscreen), `loop`, `muted`를 가집니다. 현재 미디어는 `media_puppy_crack.mp4`(기본값, `Tools/make_puppy_crack.swift`), `media_cat_push.mp4`(`Tools/make_cat_push.swift`), `media_shaking_clock.mp4`(`Tools/make_shaking_clock.swift`) 3개이며 모두 1080×1920, 7초, 무음입니다. 편집 화면은 카탈로그 `media`를 그대로 칩으로 보여주므로 영상을 추가할 땐 파일 + 카탈로그 항목(`default`는 하나만 true)만 넣으면 됩니다.
+- **소리·미디어 표시명은 앱 언어를 따라갑니다.** 카탈로그 id(`media_...`, `sound_...`)를 키로 `ui_strings_{ko,en}.json`에서 찾고(`Strings.mediaName`/`soundName`), 없으면 카탈로그 `displayName`(한국어)으로 대체합니다. 소리·미디어를 추가할 땐 ko/en 양쪽에 같은 키를 넣으세요. 영어 이름: `Morning Has Come`, `Yar Song`, `Puppy Smash`, `Cat vs. Phone`, `Shaky Alarm`.
 - 소리 파일은 mp3입니다. AlarmKit에 쓰려면 `.caf`로 변환해야 할 수 있습니다(`afconvert`).
 - UI 문구는 `Resources/Copy/ui_strings_{ko,en}.json`에 있습니다. `{count}` 같은 플레이스홀더를 포함합니다.
 - 언어는 시스템 기본 또는 수동 한/영 선택입니다. 지원하지 않는 언어면 한국어로 대체합니다.

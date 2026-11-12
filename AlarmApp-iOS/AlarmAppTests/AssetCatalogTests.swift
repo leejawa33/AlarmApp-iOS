@@ -20,6 +20,18 @@ struct AssetCatalogTests {
         #expect(media.loop == true)
     }
 
+    @Test func everyMediaIsMutedLoopingFullscreenVideo() throws {
+        let catalog = try AssetCatalog.load()
+        #expect(catalog.media.map(\.id) == ["media_puppy_crack", "media_cat_push", "media_shaking_clock"])
+        #expect(Set(catalog.media.map(\.id)).count == catalog.media.count)
+        for media in catalog.media {
+            #expect(media.type == .video, "\(media.id)")
+            #expect(media.layout == .fullscreen, "\(media.id)")
+            #expect(media.muted == true, "\(media.id)")
+            #expect(media.loop == true, "\(media.id)")
+        }
+    }
+
     @Test func defaultSoundHasKoreanName() throws {
         let catalog = try AssetCatalog.load()
         #expect(catalog.sounds.filter(\.isDefault).count == 1)

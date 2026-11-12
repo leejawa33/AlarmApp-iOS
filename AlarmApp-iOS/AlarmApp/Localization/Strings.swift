@@ -32,6 +32,20 @@ final class Strings {
         table[key] ?? fallback[key] ?? key
     }
 
+    /// 미디어 표시명: 앱 언어 문구에서 카탈로그 id(`media_...`)를 키로 조회 → 없으면 카탈로그 `displayName`.
+    func mediaName(_ media: AssetCatalog.Media) -> String {
+        name(id: media.id, fallback: media.displayName)
+    }
+
+    /// 소리 표시명: 앱 언어 문구에서 카탈로그 id(`sound_...`)를 키로 조회 → 없으면 카탈로그 `displayName`.
+    func soundName(_ sound: AssetCatalog.Sound) -> String {
+        name(id: sound.id, fallback: sound.displayName)
+    }
+
+    private func name(id: String, fallback catalogName: String) -> String {
+        table[id] ?? fallback[id] ?? catalogName
+    }
+
     /// `{name}` 플레이스홀더 치환
     func format(_ key: String, _ args: [String: CustomStringConvertible]) -> String {
         args.reduce(self[key]) { text, arg in

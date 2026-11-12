@@ -181,7 +181,7 @@ struct AlarmEditView: View {
         Block(label: strings["edit_media"]) {
             HStack(spacing: 8) {
                 ForEach(service.catalog.media) { media in
-                    Chip(title: media.displayName, isSelected: draft.mediaID == media.id) { draft.mediaID = media.id }
+                    Chip(title: strings.mediaName(media), isSelected: draft.mediaID == media.id) { draft.mediaID = media.id }
                 }
             }
         }
@@ -190,9 +190,8 @@ struct AlarmEditView: View {
     private var soundBlock: some View {
         Block(label: strings["edit_sound"]) {
             HStack(spacing: 8) {
-                // 소리 이름은 앱 언어와 무관하게 항상 한글(카탈로그 displayName)
                 ForEach(service.catalog.sounds) { sound in
-                    Chip(title: sound.displayName, isSelected: draft.soundID == sound.id) { draft.soundID = sound.id }
+                    Chip(title: strings.soundName(sound), isSelected: draft.soundID == sound.id) { draft.soundID = sound.id }
                 }
             }
         }
