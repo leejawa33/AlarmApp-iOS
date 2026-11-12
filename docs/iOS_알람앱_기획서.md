@@ -1,7 +1,6 @@
-# iOS 알람앱 1차 기획서 (확정 · 재검토 반영)
+# iOS 알람앱 1차 기획서
 
-상태: 확정 + 재검토 반영 (네이밍 확정, 미디어 동영상 전환, Phase 1 구현 완료 · 실기기 검증 전)  
-기준일: 2026-11-12 (최초 2026-11-09)  
+최종 수정: 2026-11-12 (최초 2026-11-09)  
 표시명: 알람천국 / iOS: AlarmApp-iOS / Android(Phase2): AlarmApp-Android
 
 ## 검토 요약
@@ -158,14 +157,3 @@ Phase 2: 톤다운 다크 + 테마 설정(라이트/다크/시스템), Android �
 - **미션:** 흔들기 n/10 또는 따라쓰기 입력 → 완료 피드백 → 정지
 
 카피 톤: 밝고 짧게. 레퍼런스 중앙 장문은 미디어 예시일 뿐 앱 기본 톤 아님.
-
-## 11. 다음 단계
-
-1. ~~디자인·와이어 / Windows 에셋·문구 준비~~ (`AlarmApp-iOS/Resources`)  
-2. ~~Mac으로 프로젝트 이전~~ → `AlarmApp-iOS/MAC_SETUP.md`  
-3. ~~AlarmApp-iOS Xcode 골격 (Mac)~~ (`AlarmApp-iOS/AlarmApp-iOS.xcodeproj`)  
-4. ~~Alarm CRUD + AlarmKit 연동~~  
-5. ~~화면 연결 (메인→편집→실행→미션)~~ + 미션 문장 고르기, 영어 문장  
-6. ~~git 저장소 + 첫 커밋~~ · ~~앱 아이콘~~ · ~~번들 ID 확정~~ · ~~`IMG_6265.PNG` 정리~~  
-7. 실기기 검증(`CLAUDE.md`의 실기기 확인 목록) → 결과에 따른 보정  
-8. 출시 준비: App Store Connect 등록, 스토어 자료  
