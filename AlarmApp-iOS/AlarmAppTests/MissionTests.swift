@@ -7,27 +7,27 @@ struct ShakeCounterTests {
     @Test func countsPeaksAboveThreshold() {
         var counter = ShakeCounter(target: 10)
         counter.feed(magnitude: 0, at: 0)                     // 첫 샘플 = 시작
-        #expect(counter.feed(magnitude: 0.8, at: 0.9) == false) // 약한 움직임은 무시
-        #expect(counter.feed(magnitude: 2.0, at: 1) == true)
+        #expect(counter.feed(magnitude: 3.0, at: 0.9) == false) // 약한 움직임은 무시
+        #expect(counter.feed(magnitude: 4.5, at: 1) == true)
         #expect(counter.count == 1)
     }
 
     @Test func ignoresPeaksWithinInterval() {
         var counter = ShakeCounter(target: 10)
         counter.feed(magnitude: 0, at: 0)
-        counter.feed(magnitude: 2.0, at: 1.00)
-        counter.feed(magnitude: 2.5, at: 1.10) // 같은 흔들기의 두 번째 피크
-        counter.feed(magnitude: 2.5, at: 1.30)
+        counter.feed(magnitude: 4.5, at: 1.00)
+        counter.feed(magnitude: 5.0, at: 1.10) // 같은 흔들기의 두 번째 피크
+        counter.feed(magnitude: 5.0, at: 1.30)
         #expect(counter.count == 1)
-        counter.feed(magnitude: 2.0, at: 1.40)
+        counter.feed(magnitude: 4.5, at: 1.40)
         #expect(counter.count == 2)
     }
 
     @Test func ignoresMovementRightAfterStart() {
         var counter = ShakeCounter(target: 10)
-        #expect(counter.feed(magnitude: 3.0, at: 10.0) == false) // 미션 시작 버튼을 누르는 손 움직임
-        #expect(counter.feed(magnitude: 3.0, at: 10.3) == false)
-        #expect(counter.feed(magnitude: 3.0, at: 10.6) == true)
+        #expect(counter.feed(magnitude: 5.0, at: 10.0) == false) // 미션 시작 버튼을 누르는 손 움직임
+        #expect(counter.feed(magnitude: 5.0, at: 10.3) == false)
+        #expect(counter.feed(magnitude: 5.0, at: 10.6) == true)
     }
 
     @Test func completesAtTargetAndStopsCounting() {

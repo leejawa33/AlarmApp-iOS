@@ -5,7 +5,7 @@ import Foundation
 /// - 한 번 흔들 때 여러 피크가 생기므로 `minInterval` 안의 피크는 무시
 nonisolated struct ShakeCounter: Sendable {
     let target: Int
-    var threshold: Double = 1.5
+    var threshold: Double = 4.0
     var minInterval: TimeInterval = 0.35
     /// 시작 직후(버튼을 누르는 손 움직임 등)는 세지 않는다
     var warmUp: TimeInterval = 0.5
