@@ -18,7 +18,7 @@
 - 앱 표시 이름(양 플랫폼): **알람천국**
 - iOS 프로젝트: **AlarmApp-iOS** (타깃명 `AlarmApp` 가능)
 - Android 프로젝트: **AlarmApp-Android** (Phase 2)
-- 번들 ID / applicationId: `com.leehyun.alarmapp` (임시, 출시 전 확정)
+- 번들 ID / applicationId: `com.alarmheaven.alarm` (확정)
 - 브랜드 톤: 밝고 힘찬 (밝은 배경 + 강한 CTA)
 - 테마: **Phase 1 라이트 고정**. Phase 2(기능 업데이트)에서 톤다운 다크 + 라이트/다크/시스템 따름 추가
 

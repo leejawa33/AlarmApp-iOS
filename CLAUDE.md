@@ -9,7 +9,7 @@ AlarmKit 동작(권한 창, 실제 울림, "미션하러 가기" 버튼)은 **�
 
 **다음 할 일 (순서대로):**
 1. **실기기 검증** — 아래 "실기기 확인 목록". 서명 팀(`DEVELOPMENT_TEAM`)은 사용자가 Xcode에서 지정해야 합니다. 결과에 따라 흔들기 임계값, 소리 길이(30초 제한) 등을 보정합니다.
-2. **출시 준비** — 번들 ID 확정, `Resources/Media/IMG_6265.PNG`(타사 참고 스크린샷) 정리.
+2. **출시 준비** — App Store Connect 앱 등록(번들 ID `com.alarmheaven.alarm`은 확정), 개인정보 처리 방침·스크린샷 등 스토어 자료.
 
 사용자는 15년차 백엔드 엔지니어입니다. iOS 개념은 Spring 비유(Service, Repository, Entity, DTO 등)로 설명하면 잘 통합니다. 설명은 항상 한국어로 합니다.
 
@@ -49,7 +49,7 @@ AlarmKit 동작(권한 창, 실제 울림, "미션하러 가기" 버튼)은 **�
 시뮬레이터 수동 확인용 DEBUG 실행 인자(`DebugLaunch.swift`): `-demoSeed`(샘플 알람 3개), `-demoScreen new|edit|settings|language|prompts|preview|ring|openSettings`(실행당 한 번만 동작), `-demoMission shake|transcription`(실행 화면에서 바로 미션), `-demoLanguage en|ko`(저장된 언어 설정은 두고 이번 실행만), 언어 확인은 `-AppleLanguages "(en)"`.
 
 ```sh
-xcrun simctl launch booted com.leehyun.alarmapp -demoSeed -demoScreen edit
+xcrun simctl launch booted com.alarmheaven.alarm -demoSeed -demoScreen edit
 xcrun simctl io booted screenshot shot.png
 ```
 
@@ -90,7 +90,7 @@ xcodebuild -project AlarmApp-iOS.xcodeproj -scheme AlarmApp -destination 'platfo
 
 ## 프로젝트 생성 시 고정 값
 
-- 앱 표시명 **알람천국**, 프로젝트 `AlarmApp-iOS`, 타깃 `AlarmApp`, 번들 ID `com.leehyun.alarmapp`(테스트: `.tests`). 서명 팀(`DEVELOPMENT_TEAM`)은 Xcode에서 직접 지정
+- 앱 표시명 **알람천국**, 프로젝트 `AlarmApp-iOS`, 타깃 `AlarmApp`, 번들 ID `com.alarmheaven.alarm`(테스트: `.tests`). 서명 팀(`DEVELOPMENT_TEAM`)은 Xcode에서 직접 지정
 - Swift + SwiftUI, SwiftData(로컬 전용), **iOS 26.0 최소**, iPhone만, Xcode 26+
 - 알람은 **AlarmKit**, 흔들기는 **Core Motion**. Info.plist에 `NSAlarmKitUsageDescription`이 필요합니다.
 - 크로스플랫폼 프레임워크는 쓰지 않습니다. Android(Phase 2)는 코드 공유 없이 따로 재구현합니다.
