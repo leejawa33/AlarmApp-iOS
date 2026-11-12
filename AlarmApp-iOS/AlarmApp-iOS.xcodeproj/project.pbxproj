@@ -26,7 +26,6 @@
 		A1A1A1A10000000000000033 /* Exceptions for "Resources" folder in "AlarmApp" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Media/IMG_6265.PNG,
 				README.md,
 			);
 			target = A1A1A1A10000000000000010 /* AlarmApp */;
