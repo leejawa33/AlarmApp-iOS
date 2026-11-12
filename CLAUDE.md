@@ -8,9 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 AlarmKit 동작(권한 창, 실제 울림, "미션하러 가기" 버튼)은 **실기기에서 아직 확인하지 않았습니다**. 시뮬레이터에서는 권한 요청이 창 없이 바로 거부되지만, 설정 앱에서 알람천국 권한을 켜면 AlarmKit 예약까지는 동작합니다(로그 `Scheduled alarm` 확인).
 
 **다음 할 일 (순서대로):**
-1. **git 저장소 만들기 + 첫 커밋** — 아직 git이 없습니다. `.gitignore`(빌드 산출물, `xcuserdata`, `DerivedData`, `./build`)를 함께 만듭니다.
-2. **실기기 검증** — 아래 "실기기 확인 목록". 서명 팀(`DEVELOPMENT_TEAM`)은 사용자가 Xcode에서 지정해야 합니다. 결과에 따라 흔들기 임계값, 소리 길이(30초 제한) 등을 보정합니다.
-3. **출시 준비** — 앱 아이콘(`Assets.xcassets/AppIcon` 비어 있음), 번들 ID 확정, `Resources/Media/IMG_6265.PNG`(타사 참고 스크린샷) 정리.
+1. **실기기 검증** — 아래 "실기기 확인 목록". 서명 팀(`DEVELOPMENT_TEAM`)은 사용자가 Xcode에서 지정해야 합니다. 결과에 따라 흔들기 임계값, 소리 길이(30초 제한) 등을 보정합니다.
+2. **출시 준비** — 번들 ID 확정, `Resources/Media/IMG_6265.PNG`(타사 참고 스크린샷) 정리.
 
 사용자는 15년차 백엔드 엔지니어입니다. iOS 개념은 Spring 비유(Service, Repository, Entity, DTO 등)로 설명하면 잘 통합니다. 설명은 항상 한국어로 합니다.
 
@@ -18,7 +17,7 @@ AlarmKit 동작(권한 창, 실제 울림, "미션하러 가기" 버튼)은 **�
 - 디자인 시안(HTML 목업, CSS 토큰): `docs/design-preview.html`
 - 알람 실행 화면 레퍼런스: `알람실행화면.png` (잠금화면이 아니라 **앱 안**의 실행 화면)
 - 번들 리소스: `AlarmApp-iOS/Resources/`
-- 미디어 영상 생성 스크립트: `AlarmApp-iOS/Tools/` (앱 타깃에 포함되지 않음)
+- 미디어 영상·앱 아이콘 생성 스크립트: `AlarmApp-iOS/Tools/` (앱 타깃에 포함되지 않음). 앱 아이콘은 `swift Tools/make_app_icon.swift`로 다시 만듭니다(1024×1024, 불투명).
 
 ## 프로젝트 구조
 
