@@ -18,7 +18,7 @@ struct AlarmAppApp: App {
         let catalog: AssetCatalog
         let language: AppLanguage
         do {
-            container = try ModelContainer(for: Alarm.self, AppSettings.self)
+            container = try ModelContainer(for: Alarm.self, QuickAlarm.self, AppSettings.self)
             catalog = try AssetCatalog.load()
             language = try AppSettings.current(in: container.mainContext).language
         } catch {

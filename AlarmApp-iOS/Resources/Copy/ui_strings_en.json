@@ -68,5 +68,16 @@
   "prompt_picker_title": "Choose Phrases",
   "prompt_select_all": "Select all",
   "prompt_selected_count": "{count} selected",
-  "prompt_selected_all": "All"
+  "prompt_selected_all": "All",
+  "main_quick_alarm": "Quick Alarm",
+  "quick_title": "Quick Alarm",
+  "quick_description": "Rings once in a few minutes. Turn it off right away, no mission.",
+  "quick_minutes": "{minutes} min",
+  "quick_start": "Alert in {minutes} min",
+  "quick_alarm_title": "Quick Alarm · {minutes} min",
+  "quick_row_meta": "Rings at {time} · {remaining}",
+  "quick_pending_title": "Pending quick alarms",
+  "quick_cancel": "Cancel quick alarm",
+  "quick_limit": "You can have up to {max} quick alarms at once.",
+  "quick_unit": "min"
 }

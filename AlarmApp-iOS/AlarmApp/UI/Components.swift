@@ -62,11 +62,13 @@ struct CTAButtonStyle: ButtonStyle {
 
 /// 흰 배경 보조 버튼 (미리보기 등)
 struct GhostButtonStyle: ButtonStyle {
+    var height: CGFloat = 48
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(Theme.rounded(15, weight: .heavy))
             .foregroundStyle(Theme.text)
-            .frame(maxWidth: .infinity, minHeight: 48)
+            .frame(maxWidth: .infinity, minHeight: height)
             .background(Color.white, in: RoundedRectangle(cornerRadius: 12))
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.line))
             .scaleEffect(configuration.isPressed ? 0.97 : 1)

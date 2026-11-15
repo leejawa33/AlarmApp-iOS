@@ -9,6 +9,18 @@ nonisolated struct AlarmSnapshot: Sendable, Equatable {
     let soundID: String
 }
 
+/// 한 번만 울리는 예약(고정 시각). 퀵알람이 쓰고, 이후 미루기·이번만 변경 회차도 같은 경로를 쓴다.
+nonisolated struct OneShotSnapshot: Sendable, Equatable {
+    enum Kind: Sendable, Equatable {
+        /// 미션 없는 퀵알람. 시스템 알림에서 바로 끈다.
+        case quick(minutes: Int)
+    }
+
+    let id: UUID
+    let kind: Kind
+    let fireDate: Date
+}
+
 /// 알람 권한 상태 (AlarmKit 타입을 서비스·UI로 새지 않게 하는 우리 쪽 표현)
 nonisolated enum AlarmAuthorization: Sendable, Equatable {
     case notDetermined, denied, authorized
@@ -28,7 +40,9 @@ protocol AlarmScheduling: AnyObject {
     func requestAuthorization() async -> AlarmAuthorization
     /// 같은 id가 이미 있으면 교체한다(upsert). 단, 지금 울리는 중인 알람은 건드리지 않는다.
     func schedule(_ alarm: AlarmSnapshot) async throws
-    /// 없는 id여도 에러 없이 끝난다.
+    /// 고정 시각에 한 번만 울리는 알람을 예약한다. 같은 id가 있으면 교체하고, 울리는 중이면 건드리지 않는다.
+    func scheduleOnce(_ alarm: OneShotSnapshot) async throws
+    /// 없는 id여도 에러 없이 끝난다. 반복·일회성 모두 id로 취소한다.
     func cancel(id: UUID) async throws
     /// 지금 울리는 알람을 멈춘다(미션 완료). 반복 예약은 유지된다. 울리는 중이 아니면 아무것도 안 한다.
     func stop(id: UUID) async throws
@@ -38,6 +52,8 @@ protocol AlarmScheduling: AnyObject {
 /// 메모리 구현. 단위 테스트·Xcode Preview·테스트 호스트 실행에서 쓴다.
 final class InMemoryAlarmScheduler: AlarmScheduling {
     private(set) var scheduled: [UUID: AlarmSnapshot] = [:]
+    /// 테스트용: 일회성(퀵알람 등) 예약
+    private(set) var scheduledOnce: [UUID: OneShotSnapshot] = [:]
     /// 테스트용: stop이 호출된 알람 id
     private(set) var stopped: [UUID] = []
     var authorization: AlarmAuthorization = .authorized
@@ -61,9 +77,16 @@ final class InMemoryAlarmScheduler: AlarmScheduling {
         scheduled[alarm.id] = alarm
     }
 
+    func scheduleOnce(_ alarm: OneShotSnapshot) async throws {
+        try throwIfNeeded()
+        guard authorization == .authorized else { throw AlarmSchedulerError.notAuthorized }
+        scheduledOnce[alarm.id] = alarm
+    }
+
     func cancel(id: UUID) async throws {
         try throwIfNeeded()
         scheduled[id] = nil
+        scheduledOnce[id] = nil
     }
 
     func stop(id: UUID) async throws {
@@ -71,7 +94,7 @@ final class InMemoryAlarmScheduler: AlarmScheduling {
         stopped.append(id)
     }
 
-    func scheduledIDs() async throws -> Set<UUID> { Set(scheduled.keys) }
+    func scheduledIDs() async throws -> Set<UUID> { Set(scheduled.keys).union(scheduledOnce.keys) }
 
     private func throwIfNeeded() throws {
         if let error = nextError {

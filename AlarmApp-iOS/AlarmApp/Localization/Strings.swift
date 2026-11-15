@@ -95,6 +95,8 @@ final class Strings {
         case AlarmValidationError.emptyTitle: return self["edit_title_required"]
         case AlarmValidationError.noWeekday: return self["edit_weekday_required"]
         case AlarmValidationError.limitReached: return self["main_max_alarms"]
+        case AlarmValidationError.quickLimitReached(let max):
+            return format("quick_limit", ["max": max])
         case AlarmServiceError.schedulingFailed(let underlying as AlarmSchedulerError) where underlying == .notAuthorized:
             return self["permission_alarm_denied"]
         case AlarmServiceError.schedulingFailed: return self["error_scheduling_failed"]

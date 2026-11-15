@@ -14,7 +14,7 @@ struct AlarmServiceTests {
 
     init() throws {
         container = try ModelContainer(
-            for: Alarm.self, AppSettings.self,
+            for: Alarm.self, QuickAlarm.self, AppSettings.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
         service = AlarmService(context: container.mainContext, catalog: try AssetCatalog.load(), scheduler: scheduler)

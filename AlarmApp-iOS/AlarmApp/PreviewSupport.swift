@@ -7,7 +7,7 @@ import SwiftUI
 enum PreviewSupport {
     static func make(sample: Bool) -> (ModelContainer, AlarmService, Strings) {
         let container = try! ModelContainer(
-            for: Alarm.self, AppSettings.self,
+            for: Alarm.self, QuickAlarm.self, AppSettings.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
         let catalog = try! AssetCatalog.load()

@@ -3,7 +3,7 @@ import Foundation
 
 /// 디버그 빌드 전용 실행 인자 (시뮬레이터 스크린샷·수동 확인용)
 /// - `-demoSeed`: 알람이 없으면 샘플 3개 생성
-/// - `-demoScreen edit|new|settings|language|prompts|preview|ring|openSettings`: 시작 시 해당 화면 열기
+/// - `-demoScreen edit|new|quick|settings|language|prompts|preview|ring|openSettings`: 시작 시 해당 화면 열기
 ///   (`ring`: 첫 알람이 울린 것처럼 실행 화면을 띄운다. 시스템 알람은 안 울리므로 앱이 소리를 낸다)
 /// - 시스템 언어 확인: `-AppleLanguages "(en)"`
 enum DebugLaunch {

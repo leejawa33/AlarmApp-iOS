@@ -4,13 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 현재 상태
 
-**Phase 1 기능 구현은 끝났습니다.** 메인 / 편집 / 미션 문장 고르기 / 설정·언어 / 실행 화면 / 미션(흔들기·따라쓰기, 한·영 문장) / 미리보기, SwiftData + AlarmKit 연동까지 동작하고 테스트 84개가 통과합니다(2026-11-12 기준).
+**Phase 1 기능 구현은 끝났습니다.** 메인 / 편집 / 미션 문장 고르기 / 설정·언어 / 실행 화면 / 미션(흔들기·따라쓰기, 한·영 문장) / 미리보기, SwiftData + AlarmKit 연동까지 동작하고 테스트가 통과합니다(2026-11-15 기준 104개). 퀵알람(기획서 11.7)까지 구현했습니다.
 AlarmKit 동작(권한 창, 실제 울림, "미션하러 가기" 버튼)은 **실기기에서 아직 확인하지 않았습니다**. 시뮬레이터에서는 권한 요청이 창 없이 바로 거부되지만, 설정 앱에서 알람천국 권한을 켜면 AlarmKit 예약까지는 동작합니다(로그 `Scheduled alarm` 확인).
 
 **다음 할 일 (순서대로):**
 1. **실기기 검증** — 아래 "실기기 확인 목록". 서명 팀(`DEVELOPMENT_TEAM`)은 사용자가 Xcode에서 지정해야 합니다. 결과에 따라 흔들기 임계값, 소리 길이(30초 제한) 등을 보정합니다.
 2. **출시 준비** — App Store Connect 앱 등록(번들 ID `com.alarmheaven.alarm`은 확정), 개인정보 처리 방침·스크린샷 등 스토어 자료.
-3. **기획서 11절 확장 구현**(이번만 변경·메모 읽어주기·알람 미루기·퀵알람, 기획서 개정 2026-11-15). 구현은 아직 시작 전입니다. 권장 순서: ① 일회성(고정 날짜) AlarmKit 예약 실기기 스파이크(예약 개수 한도, 앱 미실행 시 지속성) → ② 퀵알람 → ③ 알람 미루기 → ④ 이번만 변경 → ⑤ 메모 읽어주기. 요일별 다른 시각·순환 일정·달력 직접 지정은 이번 범위 밖(`docs/알람천국_추가_기능_검토.md`에 후속 후보로 보존). 1번 실기기 검증과 병행해도 됩니다.
+3. **기획서 11절 확장 구현**(이번만 변경·메모 읽어주기·알람 미루기·퀵알람, 기획서 개정 2026-11-15). 권장 순서: ① 일회성(고정 날짜) AlarmKit 예약 실기기 스파이크(예약 개수 한도, 앱 미실행 시 지속성) → ② 퀵알람(**구현 완료, 실기기 확인 전**) → ③ 알람 미루기 → ④ 이번만 변경 → ⑤ 메모 읽어주기. 요일별 다른 시각·순환 일정·달력 직접 지정은 이번 범위 밖(`docs/알람천국_추가_기능_검토.md`에 후속 후보로 보존). 1번 실기기 검증과 병행해도 됩니다.
 
 사용자는 15년차 백엔드 엔지니어입니다. iOS 개념은 Spring 비유(Service, Repository, Entity, DTO 등)로 설명하면 잘 통합니다. 설명은 항상 한국어로 합니다.
 
@@ -34,12 +34,12 @@ AlarmKit 동작(권한 창, 실제 울림, "미션하러 가기" 버튼)은 **�
 
 | 폴더 | 역할 |
 |---|---|
-| `Domain/` | 순수 로직·값 타입: `Weekday`(비트마스크), `MissionType`, `AlarmSchedule`(다음 울림·남은 시간), `TranscriptionPrompts`(카테고리·한/영 문장·판정) + `PromptSelection`(알람별 문장 선택 규칙), `ShakeCounter`(흔들기 횟수) |
-| `Persistence/` | SwiftData `@Model`: `Alarm`(원본 데이터), `AppSettings`(단일 행, 언어) |
+| `Domain/` | 순수 로직·값 타입: `QuickAlarmPreset`(퀵알람 분 프리셋·최대 5개), `Weekday`(비트마스크), `MissionType`, `AlarmSchedule`(다음 울림·남은 시간), `TranscriptionPrompts`(카테고리·한/영 문장·판정) + `PromptSelection`(알람별 문장 선택 규칙), `ShakeCounter`(흔들기 횟수) |
+| `Persistence/` | SwiftData `@Model`: `Alarm`(원본 데이터), `QuickAlarm`(퀵알람, 울릴 시각만), `AppSettings`(단일 행, 언어) |
 | `Services/` | `AlarmService`(변경의 단일 진입점), `AlarmScheduling`(OS 스케줄러 경계) + `InMemoryAlarmScheduler` / `AlarmKitScheduler`, `OpenAlarmIntent` + `RingingAlarmCenter`(울리는 알람), `MotionShakeDetector`, `RingSoundPlayer` |
 | `Catalog/` | `AssetCatalog`: 번들 카탈로그 로딩 (`MediaAsset`/`SoundAsset`은 이 타입의 별칭) |
 | `Localization/` | `Strings`: `ui_strings_{ko,en}.json` 로딩, `{name}` 치환, 시각·요일·남은 시간·에러 문구 포맷 |
-| `UI/` | `MainView`, `AlarmRowView`, `AlarmEditView`, `PromptPickerView`(미션 문장 고르기), `SettingsView`(+`LanguageSettingsView`), `LoopingVideoView`(음소거 반복 영상), `Components`(Block·Chip·CTA 버튼·워드마크·`OpenSettingsButton`) |
+| `UI/` | `MainView`, `AlarmRowView`, `QuickAlarmView`(퀵알람 시트 + 목록 카드), `AlarmEditView`, `PromptPickerView`(미션 문장 고르기), `SettingsView`(+`LanguageSettingsView`), `LoopingVideoView`(음소거 반복 영상), `Components`(Block·Chip·CTA 버튼·워드마크·`OpenSettingsButton`) |
 | `UI/Ring/` | `RingView`(실행 화면·미리보기 공용, `RingMode.live/.preview`) → `ShakeMissionView` / `TranscriptionMissionView` → `MissionCompleteView` |
 
 - **다국어(한국어/영어) 필수:** 앞으로 추가하는 모든 기능은 한국어·영어를 함께 지원해야 합니다. 사용자에게 보이는 것은 전부 대상입니다: 화면 문구, 버튼, 에러·권한 안내, 알림(AlarmKit) 문구, 접근성 라벨, 소리·미디어·미션 문장 등 콘텐츠 이름. 한쪽만 넣고 끝내지 말고, 기능을 만들 때 ko/en을 같이 추가하고 `StringsTests` 같은 키 일치·언어 전환 테스트로 확인합니다. 언어 의존 값(날짜·시각·요일·남은 시간)은 `Strings`의 포맷 함수로 처리합니다.
@@ -48,7 +48,7 @@ AlarmKit 동작(권한 창, 실제 울림, "미션하러 가기" 버튼)은 **�
 - 실행 화면 큰 시각은 24시간제 `HH:mm`(`RingView.clock`), 리스트 시각은 오전/오후 형식(`Strings.time`)입니다.
 - Preview는 `.previewEnvironment()` / `PreviewHost`(메모리 저장소 + 샘플)를 씁니다.
 
-시뮬레이터 수동 확인용 DEBUG 실행 인자(`DebugLaunch.swift`): `-demoSeed`(샘플 알람 3개), `-demoScreen new|edit|settings|language|prompts|preview|ring|openSettings`(실행당 한 번만 동작), `-demoMission shake|transcription`(실행 화면에서 바로 미션), `-demoLanguage en|ko`(저장된 언어 설정은 두고 이번 실행만), 언어 확인은 `-AppleLanguages "(en)"`.
+시뮬레이터 수동 확인용 DEBUG 실행 인자(`DebugLaunch.swift`): `-demoSeed`(샘플 알람 3개), `-demoScreen new|quick|edit|settings|language|prompts|preview|ring|openSettings`(실행당 한 번만 동작), `-demoMission shake|transcription`(실행 화면에서 바로 미션), `-demoLanguage en|ko`(저장된 언어 설정은 두고 이번 실행만), 언어 확인은 `-AppleLanguages "(en)"`.
 
 ```sh
 xcrun simctl launch booted com.alarmheaven.alarm -demoSeed -demoScreen edit
@@ -69,13 +69,20 @@ AlarmKit 연동 규칙 (`Services/AlarmKitScheduler.swift`, `Services/OpenAlarmI
 - 소리: 카탈로그 `sounds[].alarmFile`(.caf)을 `.named(파일명)`으로 씁니다. 없으면 시스템 기본음.
 - 지금 울리는 알람 id는 `RingingAlarmCenter.ringingAlarmID`(Intent + `alarmUpdates`의 `.alerting`)입니다. 값이 있으면 `ContentView`가 `RingView(.live)`를 fullScreenCover로 띄우고, 사용자가 닫을 수 없습니다(바인딩 setter 무시). 미션 완료 → `AlarmService.completeMission`(AlarmKit `stop`, 반복 예약은 유지) → `ringing.clear()`로만 닫힙니다.
 
+퀵알람 규칙 (`Services/AlarmService.swift`, `Services/AlarmScheduling.swift`, `Persistence/QuickAlarm.swift`):
+- 스케줄러 경계에 일회성 예약 `scheduleOnce(OneShotSnapshot)`이 있습니다(AlarmKit `.fixed(Date)`). 미루기·이번만 변경 회차도 같은 경로를 쓸 예정입니다. 퀵알람 알림은 "미션하러 가기" 버튼 없이 시스템 중지 버튼만 둡니다(제목 `quick_alarm_title`, 소리는 카탈로그 기본 소리).
+- 생성·취소·정리는 `AlarmService.createQuickAlarm/cancelQuickAlarm/purgeExpiredQuickAlarms`를 거칩니다. 예약이 실패하면 행을 지우고 `schedulingFailed`를 던집니다(실제로 예약되지 않은 퀵알람을 목록에 남기지 않음). 퀵알람은 일반 알람 10개 한도와 별개로 최대 5개입니다.
+- **퀵알람은 미션 실행 화면을 열지 않습니다.** `AlarmService`가 퀵알람 id를 `RingingAlarmCenter.quickAlarmIDs`에 넣어 주고, 센터는 그 id를 `markRinging`·`alertingIDs`에서 제외합니다. 이 id 갱신이 `startMonitoring()`보다 먼저여야 하므로 서비스 `init`에서 채웁니다.
+- `reconcile()`은 퀵알람 행의 id를 stale 취소 대상에서 제외하고(방금 울려 소리 나는 중일 수 있음), 아직 울리지 않은 것만 다시 예약합니다. 울린 지 1시간이 지난 행은 정리합니다.
+- 시뮬레이터에서는 알람 권한이 꺼져 있어 퀵알람을 만들면 권한 안내가 뜹니다. 실제 울림·중지 버튼은 실기기에서 확인해야 합니다.
+
 실행 화면·미션 규칙 (`UI/Ring/`, `Domain/ShakeCounter.swift`, `Services/MotionShakeDetector.swift`, `Services/RingSoundPlayer.swift`):
 - 미리보기도 같은 `RingView`(`.preview(draft)`)입니다. 미션을 해 볼 수 있지만 알람을 정지하지 않고, 완료하면 닫힙니다.
 - 소리: 시스템 알람이 `.alerting`이 아니면(앱을 열자 시스템 소리가 멈춘 경우 등) 앱이 카탈로그 mp3를 `.playback`으로 반복 재생합니다. 미리보기도 앱이 재생합니다. 영상은 항상 음소거입니다.
 - 흔들기: Core Motion `userAcceleration` 크기 ≥ 4.0g(약 39.2 m/s²)를 1회, 0.35초 안의 피크는 무시, 시작 0.5초는 무시(`ShakeCounter`). 센서가 없으면(시뮬레이터) 시스템 흔들기 제스처(`UIWindow.motionEnded`), 시뮬레이터 빌드에서는 진행 링 탭으로도 1회. **임계값은 실기기에서 조정 필요.**
 - 따라쓰기: 알람이 고른 문장(`Alarm.promptIDs`, **빈 배열 = 전체**) 중 무작위 하나, 입력이 `TranscriptionPrompts.isMatch`를 만족하는 즉시 완료. 문장 선택은 편집 화면 → `PromptPickerView`(카테고리 탭·탭별 전체 선택·문장별 체크, 0개면 확인 불가). 저장 규칙은 `PromptSelection`(전부 고르면 빈 배열로 저장, 모르는 id만 남으면 전체로 대체). 문구는 `transcription_prompts.json`의 `categories`(한/영 표시명) + `prompts[].category` + `prompts[].text`(**같은 id에 `ko`/`en` 문장**)입니다. 앱 언어 문장으로 출제·판정하고 없으면 한국어로 대체하므로, 알람의 문장 선택은 언어를 바꿔도 유지됩니다. 문장을 추가할 때는 두 언어를 함께 넣고, 띄어쓰기가 헷갈리지 않는 짧은 문장으로 씁니다. 영어는 첫 글자만 대문자(입력창이 문장 첫 글자 자동 대문자), 중간 대문자·아포스트로피 금지(iOS가 ’로 바꿔 불일치). `TranscriptionPromptDataTests`가 검사합니다. 문구 파일이 없으면 흔들기로 대체(미션 없이 꺼지면 안 됨). 알람을 못 찾으면(삭제됨) 카탈로그 기본값 + 흔들기.
 
-실기기 확인 목록: ① 알람 첫 저장 시 권한 창과 `NSAlarmKitUsageDescription` 문구 ② 지정 시각에 커스텀 소리로 울림(`아침이 왔다잖아`는 33.7초라 30초 제한에 걸리는지) ③ "미션하러 가기"를 누르면 앱이 열리고 소리가 계속 나는지 ④ 시스템 중지 버튼 노출 여부 ⑤ 설정에서 권한을 끄면 메인에 경고 배너 ⑥ 앱이 꺼진/백그라운드/포그라운드 상태 각각에서 울릴 때 실행 화면이 뜨는지 ⑦ 흔들기 임계값(너무 쉽거나 어려운지) ⑧ 미션 완료 시 소리가 멈추고 다음 요일 예약이 유지되는지 ⑨ 무음 모드에서 앱 안 소리가 나는지 ⑩ 영어 따라쓰기에서 입력창 첫 글자 자동 대문자, 한글 조합 중 판정이 자연스러운지 ⑪ 앱 설정 링크(`설정 열기`)가 iPhone 설정의 알람천국 항목으로 가는지(시뮬레이터에서는 설정 메인으로 감)
+실기기 확인 목록: ① 알람 첫 저장 시 권한 창과 `NSAlarmKitUsageDescription` 문구 ② 지정 시각에 커스텀 소리로 울림(`아침이 왔다잖아`는 33.7초라 30초 제한에 걸리는지) ③ "미션하러 가기"를 누르면 앱이 열리고 소리가 계속 나는지 ④ 시스템 중지 버튼 노출 여부 ⑤ 설정에서 권한을 끄면 메인에 경고 배너 ⑥ 앱이 꺼진/백그라운드/포그라운드 상태 각각에서 울릴 때 실행 화면이 뜨는지 ⑦ 흔들기 임계값(너무 쉽거나 어려운지) ⑧ 미션 완료 시 소리가 멈추고 다음 요일 예약이 유지되는지 ⑨ 무음 모드에서 앱 안 소리가 나는지 ⑩ 영어 따라쓰기에서 입력창 첫 글자 자동 대문자, 한글 조합 중 판정이 자연스러운지 ⑪ 앱 설정 링크(`설정 열기`)가 iPhone 설정의 알람천국 항목으로 가는지(시뮬레이터에서는 설정 메인으로 감) ⑫ 퀵알람: 고른 분 뒤에 울리는지, 중지 버튼으로 미션 없이 꺼지는지, 앱을 종료해도 울리는지, 울릴 때 미션 실행 화면이 뜨지 않는지, 한도 5개 초과 안내
 
 ## 빌드 / 테스트
 

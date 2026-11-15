@@ -23,6 +23,9 @@ nonisolated enum AlarmValidationError: Error, Equatable {
     case invalidTime
     case unknownMedia(String)
     case unknownSound(String)
+    /// 동시에 둘 수 있는 퀵알람 수 초과
+    case quickLimitReached(max: Int)
+    case invalidQuickMinutes(Int)
 }
 
 nonisolated enum AlarmServiceError: Error {
@@ -44,15 +47,20 @@ final class AlarmService {
     /// 편집 화면의 미디어·소리 선택지
     @ObservationIgnored let catalog: AssetCatalog
     @ObservationIgnored private let scheduler: any AlarmScheduling
+    /// 퀵알람 id를 알려 줘서, 퀵알람이 울릴 때 미션 실행 화면이 뜨지 않게 한다.
+    @ObservationIgnored private let ringing: RingingAlarmCenter
 
     /// 알람 권한 상태. 메인 화면 경고 배너·설정 화면에서 쓴다.
     private(set) var authorization: AlarmAuthorization
 
-    init(context: ModelContext, catalog: AssetCatalog, scheduler: any AlarmScheduling) {
+    init(context: ModelContext, catalog: AssetCatalog, scheduler: any AlarmScheduling,
+         ringing: RingingAlarmCenter = .shared) {
         self.context = context
         self.catalog = catalog
         self.scheduler = scheduler
+        self.ringing = ringing
         self.authorization = scheduler.authorization
+        refreshQuickAlarmIDs()
     }
 
     /// 사용자 동작(버튼)에서만 호출. 아직 안 물었으면 시스템 권한 창을 띄우고, 허용되면 바로 예약을 맞춘다.
@@ -165,12 +173,79 @@ final class AlarmService {
         guard scheduler.authorization == .authorized else { return }
         let enabled = try context.fetch(FetchDescriptor<Alarm>(predicate: #Predicate { $0.isEnabled }))
         let enabledIDs = Set(enabled.map(\.id))
-        for staleID in try await scheduler.scheduledIDs().subtracting(enabledIDs) {
+        try purgeExpiredQuickAlarms()
+        // 퀵알람 행은 방금 울린 것도 보호한다(cancel하면 울리는 소리가 멈춘다).
+        let quickIDs = Set(try context.fetch(FetchDescriptor<QuickAlarm>()).map(\.id))
+        for staleID in try await scheduler.scheduledIDs().subtracting(enabledIDs).subtracting(quickIDs) {
             try await scheduler.cancel(id: staleID)
         }
         for alarm in enabled {
             try await scheduler.schedule(alarm.snapshot)
         }
+        for quick in try pendingQuickAlarms() {
+            try await scheduler.scheduleOnce(quick.snapshot)
+        }
+    }
+
+    // MARK: 퀵알람 (기획서 11.7)
+
+    /// 아직 울리지 않은 퀵알람(울릴 시각 순)
+    func pendingQuickAlarms(now: Date = .now) throws -> [QuickAlarm] {
+        try context.fetch(FetchDescriptor<QuickAlarm>(
+            predicate: #Predicate { $0.fireDate > now },
+            sortBy: [SortDescriptor(\.fireDate)]
+        ))
+    }
+
+    /// 지금부터 `minutes`분 뒤에 한 번 울리는 미션 없는 알람을 만든다.
+    /// 예약에 실패하면 행을 지운다 — 실제로 예약되지 않은 알람을 목록에 남기지 않기 위해서다.
+    @discardableResult
+    func createQuickAlarm(minutes: Int, now: Date = .now) async throws -> QuickAlarm {
+        guard QuickAlarmPreset.isValid(minutes) else { throw AlarmValidationError.invalidQuickMinutes(minutes) }
+        guard try pendingQuickAlarms(now: now).count < QuickAlarmPreset.maxCount else {
+            throw AlarmValidationError.quickLimitReached(max: QuickAlarmPreset.maxCount)
+        }
+        let quick = QuickAlarm(minutes: minutes, fireDate: QuickAlarmPreset.fireDate(after: now, minutes: minutes), createdAt: now)
+        context.insert(quick)
+        try context.save()
+        refreshQuickAlarmIDs()
+        defer { refreshAuthorization() }
+        do {
+            try await scheduler.scheduleOnce(quick.snapshot)
+        } catch {
+            context.delete(quick)
+            try? context.save()
+            refreshQuickAlarmIDs()
+            throw AlarmServiceError.schedulingFailed(underlying: error)
+        }
+        return quick
+    }
+
+    func cancelQuickAlarm(_ quick: QuickAlarm) async throws {
+        let id = quick.id
+        context.delete(quick)
+        try context.save()
+        refreshQuickAlarmIDs()
+        do {
+            try await scheduler.cancel(id: id)
+        } catch {
+            throw AlarmServiceError.schedulingFailed(underlying: error)
+        }
+    }
+
+    /// 울린 지 한참 지난 퀵알람 행을 지운다. 방금 울려 소리가 나는 중일 수 있어 1시간은 남겨 둔다.
+    func purgeExpiredQuickAlarms(now: Date = .now) throws {
+        let cutoff = now.addingTimeInterval(-3600)
+        let expired = try context.fetch(FetchDescriptor<QuickAlarm>(predicate: #Predicate { $0.fireDate < cutoff }))
+        guard !expired.isEmpty else { return }
+        expired.forEach(context.delete)
+        try context.save()
+        refreshQuickAlarmIDs()
+    }
+
+    private func refreshQuickAlarmIDs() {
+        let ids = (try? context.fetch(FetchDescriptor<QuickAlarm>()))?.map(\.id) ?? []
+        ringing.setQuickAlarmIDs(Set(ids))
     }
 
     // MARK: 내부

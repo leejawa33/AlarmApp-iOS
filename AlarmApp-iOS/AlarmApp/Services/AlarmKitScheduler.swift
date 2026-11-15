@@ -44,6 +44,19 @@ final class AlarmKitScheduler: AlarmScheduling {
         }
     }
 
+    func scheduleOnce(_ alarm: OneShotSnapshot) async throws {
+        guard await requestAuthorization() == .authorized else { throw AlarmSchedulerError.notAuthorized }
+        if let existing = try manager.alarms.first(where: { $0.id == alarm.id }), existing.state != .scheduled {
+            return
+        }
+        try await cancel(id: alarm.id)
+        do {
+            _ = try await manager.schedule(id: alarm.id, configuration: configuration(for: alarm))
+        } catch AlarmManager.AlarmError.maximumLimitReached {
+            throw AlarmSchedulerError.systemLimitReached
+        }
+    }
+
     func cancel(id: UUID) async throws {
         guard try manager.alarms.contains(where: { $0.id == id }) else { return }
         try manager.cancel(id: id)
@@ -83,6 +96,28 @@ final class AlarmKitScheduler: AlarmScheduling {
         )
     }
 
+    /// 퀵알람: 미션이 없으므로 "미션하러 가기" 버튼 없이 시스템 기본 중지 버튼만 둔다.
+    private func configuration(for alarm: OneShotSnapshot) -> AlarmManager.AlarmConfiguration<RingMetadata> {
+        let minutes: Int
+        switch alarm.kind {
+        case .quick(let value): minutes = value
+        }
+        let title = LocalizedStringResource(stringLiteral: label("quick_alarm_title").replacingOccurrences(of: "{minutes}", with: String(minutes)))
+        let alert: AlarmPresentation.Alert
+        if #available(iOS 26.1, *) {
+            alert = AlarmPresentation.Alert(title: title)
+        } else {
+            let stop = AlarmButton(text: LocalizedStringResource(stringLiteral: label("alarm_stop")),
+                                   textColor: .white, systemImageName: "stop.fill")
+            alert = AlarmPresentation.Alert(title: title, stopButton: stop)
+        }
+        return .alarm(
+            schedule: AlarmKitMapping.schedule(at: alarm.fireDate),
+            attributes: AlarmAttributes(presentation: AlarmPresentation(alert: alert), metadata: RingMetadata(), tintColor: Theme.cta),
+            sound: AlarmKitMapping.sound(for: catalog.defaultSound?.id ?? "", in: catalog)
+        )
+    }
+
     private static func map(_ state: AlarmManager.AuthorizationState) -> AlarmAuthorization {
         switch state {
         case .authorized: .authorized
@@ -112,6 +147,11 @@ enum AlarmKitMapping {
     static func schedule(for schedule: AlarmSchedule) -> AlarmKit.Alarm.Schedule {
         .relative(.init(time: .init(hour: schedule.hour, minute: schedule.minute),
                         repeats: .weekly(weekdays(schedule.weekdays))))
+    }
+
+    /// 한 번만 울리는 고정 시각 예약 (퀵알람 등)
+    static func schedule(at date: Date) -> AlarmKit.Alarm.Schedule {
+        .fixed(date)
     }
 
     /// 카탈로그의 alarmFile(.caf) 파일명. 없거나 번들에 없으면 시스템 기본음.

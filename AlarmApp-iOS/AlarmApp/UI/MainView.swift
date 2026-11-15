@@ -9,8 +9,10 @@ struct MainView: View {
     @Environment(\.openURL) private var openURL
     @Query(sort: [SortDescriptor(\Alarm.hour), SortDescriptor(\Alarm.minute), SortDescriptor(\Alarm.createdAt)])
     private var alarms: [Alarm]
+    @Query(sort: \QuickAlarm.fireDate) private var quickAlarms: [QuickAlarm]
 
     @State private var editing: EditTarget?
+    @State private var showQuickAlarm = false
     @State private var errorMessage: String?
     #if DEBUG
     @State private var showSettings = false
@@ -19,13 +21,16 @@ struct MainView: View {
 
     private var isAtLimit: Bool { alarms.count >= AlarmService.maxAlarms }
 
+    /// 아직 울리지 않은 퀵알람(울린 뒤에도 행은 잠시 남으므로 시각으로 거른다)
+    private func pendingQuick(at now: Date) -> [QuickAlarm] { quickAlarms.filter { $0.fireDate > now } }
+
     var body: some View {
         ZStack(alignment: .bottom) {
             background
             VStack(spacing: 0) {
                 header
                 if service.authorization == .denied { permissionBanner }
-                if alarms.isEmpty { emptyState } else { list }
+                list
             }
             addButton
         }
@@ -35,6 +40,7 @@ struct MainView: View {
             await DebugLaunch.seedIfNeeded(service)
             switch DebugLaunch.consumeScreen() {
             case "new": editing = .new(service.makeDefaultDraft())
+            case "quick": showQuickAlarm = true
             case "edit": if let first = alarms.first { editing = .existing(first) }
             case "prompts": if let first = alarms.first { DebugLaunch.pendingPromptPicker = true; editing = .existing(first) }
             case "settings": showSettings = true
@@ -52,6 +58,10 @@ struct MainView: View {
             RingView(mode: .preview({ var d = service.makeDefaultDraft(); d.title = "🐣 일찍 일어나기"; return d }()))
         }
         #endif
+        .sheet(isPresented: $showQuickAlarm) {
+            NavigationStack { QuickAlarmView() }
+                .environment(\.locale, strings.locale)
+        }
         .sheet(item: $editing) { target in
             NavigationStack {
                 AlarmEditView(alarm: target.alarm, initialDraft: target.draft)
@@ -121,8 +131,24 @@ struct MainView: View {
     private var list: some View {
         // 남은 시간 표시를 위해 1분마다 다시 그린다.
         TimelineView(.everyMinute) { context in
+            let pending = pendingQuick(at: context.date)
+            if alarms.isEmpty && pending.isEmpty {
+                emptyState
+            } else {
             // 밀어서 삭제(swipeActions)를 쓰려고 List를 쓰되, 시안의 카드 모양을 유지한다.
             List {
+                ForEach(pending) { quick in
+                    QuickAlarmRowView(alarm: quick, now: context.date)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(strings["quick_cancel"], systemImage: "xmark", role: .destructive) { cancelQuick(quick) }
+                        }
+                        .contextMenu {
+                            Button(strings["quick_cancel"], systemImage: "xmark", role: .destructive) { cancelQuick(quick) }
+                        }
+                        .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
                 ForEach(alarms) { alarm in
                     AlarmRowView(alarm: alarm, now: context.date) { enabled in
                         toggle(alarm, enabled)
@@ -144,6 +170,7 @@ struct MainView: View {
             .scrollContentBackground(.hidden)
             .contentMargins(.top, 4, for: .scrollContent)
             .contentMargins(.bottom, 120, for: .scrollContent)
+            }
         }
     }
 
@@ -172,14 +199,23 @@ struct MainView: View {
                     .font(Theme.rounded(13, weight: .semibold))
                     .foregroundStyle(Theme.textMuted)
             }
-            Button {
-                editing = .new(service.makeDefaultDraft())
-            } label: {
-                Label(strings["main_add_alarm"], systemImage: "plus")
+            HStack(spacing: 8) {
+                Button {
+                    showQuickAlarm = true
+                } label: {
+                    Label(strings["main_quick_alarm"], systemImage: "timer")
+                }
+                .buttonStyle(GhostButtonStyle(height: 52))
+                .frame(maxWidth: 140)
+                Button {
+                    editing = .new(service.makeDefaultDraft())
+                } label: {
+                    Label(strings["main_add_alarm"], systemImage: "plus")
+                }
+                .buttonStyle(CTAButtonStyle())
+                .disabled(isAtLimit)
+                .opacity(isAtLimit ? 0.45 : 1)
             }
-            .buttonStyle(CTAButtonStyle())
-            .disabled(isAtLimit)
-            .opacity(isAtLimit ? 0.45 : 1)
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 12)
@@ -189,6 +225,16 @@ struct MainView: View {
         Task {
             do {
                 try await service.delete(alarm)
+            } catch {
+                errorMessage = strings.message(for: error)
+            }
+        }
+    }
+
+    private func cancelQuick(_ quick: QuickAlarm) {
+        Task {
+            do {
+                try await service.cancelQuickAlarm(quick)
             } catch {
                 errorMessage = strings.message(for: error)
             }

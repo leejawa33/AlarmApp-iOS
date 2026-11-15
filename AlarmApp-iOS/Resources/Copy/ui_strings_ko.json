@@ -68,5 +68,16 @@
   "prompt_picker_title": "미션 문장 고르기",
   "prompt_select_all": "전체 선택",
   "prompt_selected_count": "{count}개 선택",
-  "prompt_selected_all": "전체"
+  "prompt_selected_all": "전체",
+  "main_quick_alarm": "퀵알람",
+  "quick_title": "퀵알람",
+  "quick_description": "몇 분 뒤에 한 번만 울려요. 미션 없이 바로 끌 수 있어요.",
+  "quick_minutes": "{minutes}분",
+  "quick_start": "{minutes}분 뒤 알림",
+  "quick_alarm_title": "퀵알람 · {minutes}분",
+  "quick_row_meta": "{time} 울림 · {remaining}",
+  "quick_pending_title": "대기 중인 퀵알람",
+  "quick_cancel": "퀵알람 취소",
+  "quick_limit": "퀵알람은 동시에 최대 {max}개까지 만들 수 있어요.",
+  "quick_unit": "분"
 }

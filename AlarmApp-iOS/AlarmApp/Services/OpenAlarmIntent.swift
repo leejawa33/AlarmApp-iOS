@@ -31,10 +31,17 @@ final class RingingAlarmCenter {
     private(set) var ringingAlarmID: UUID?
     /// 시스템이 지금 소리를 내고 있는(.alerting) 알람. 여기 없으면 실행 화면이 앱 안에서 소리를 낸다.
     private(set) var alertingIDs: Set<UUID> = []
+    /// 퀵알람 id. 미션이 없어 실행 화면을 열지 않고 시스템 알림에서 바로 끈다.
+    private(set) var quickAlarmIDs: Set<UUID> = []
     @ObservationIgnored private var monitorTask: Task<Void, Never>?
 
     func markRinging(_ id: UUID) {
+        guard !quickAlarmIDs.contains(id) else { return }
         ringingAlarmID = id
+    }
+
+    func setQuickAlarmIDs(_ ids: Set<UUID>) {
+        quickAlarmIDs = ids
     }
 
     func clear() {
@@ -54,7 +61,7 @@ final class RingingAlarmCenter {
     }
 
     private func update(_ alarms: [AlarmKit.Alarm]) {
-        alertingIDs = Set(alarms.filter { $0.state == .alerting }.map(\.id))
+        alertingIDs = Set(alarms.filter { $0.state == .alerting }.map(\.id)).subtracting(quickAlarmIDs)
         // 새로 울리기 시작한 알람이 있으면 실행 화면을 연다. (울림이 멈춰도 미션 전까지는 닫지 않는다)
         if ringingAlarmID == nil, let id = alertingIDs.first {
             ringingAlarmID = id
