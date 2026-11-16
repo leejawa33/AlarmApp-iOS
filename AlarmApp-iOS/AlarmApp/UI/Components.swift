@@ -95,13 +95,12 @@ struct Wordmark: View {
 struct OpenSettingsButton<Label: View>: View {
     @Environment(AlarmService.self) private var service
     @Environment(\.openURL) private var openURL
-    var kind: PermissionKind = .alarm
     @ViewBuilder var label: Label
 
     var body: some View {
         Button {
             Task {
-                if await service.handleOpenSettingsTap(kind),
+                if await service.handleOpenSettingsTap(),
                    let url = URL(string: UIApplication.openSettingsURLString) {
                     openURL(url)
                 }

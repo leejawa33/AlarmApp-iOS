@@ -649,8 +649,6 @@
     .screen-guide p { margin:0; font-size:11px; color:var(--text-muted); line-height:1.45; }
     .screen-guide button { width:100%; height:48px; border-radius:14px; font-family:inherit; font-weight:800; font-size:14px; border:1px solid var(--line); background:#fff; color:var(--text); }
     .screen-guide button.main { background:var(--cta); color:#fff; border:none; margin-bottom:8px; }
-    .warn-inline { margin:0 16px 10px; padding:9px 12px; border-radius:12px; background:#FFF1D6; border:1px solid #FFD27A; font-size:11px; font-weight:700; line-height:1.4; display:flex; gap:8px; align-items:center; }
-    .warn-inline .go { color:var(--cta); font-weight:800; white-space:nowrap; }
   </style>
 </head>
 <body>
@@ -718,7 +716,7 @@
         <div class="screen-main">
           <div class="status"><span>9:41</span><span>▮▮▮ 🔋</span></div>
           <div class="brand"><strong>알람<span>천국</span></strong><div class="gear">⚙</div></div>
-          <div class="banner"><b>⚠ 알람 권한이 꺼져 있어요</b>권한이 있어야 정해진 시각에 알람이 울려요. 설정 → 앱 → 알람천국에서 알림과 알람을 켜 주세요.<br><span class="btn-mini">설정 열기</span></div>
+          <div class="banner"><b>⚠ 알람 권한이 꺼져 있어요</b>권한이 있어야 정해진 시각에 알람이 울려요. 설정 → 앱 → 알람천국에서 알람을 켜 주세요.<br><span class="btn-mini">설정 열기</span></div>
           <div class="alarm-list">
             <div class="alarm-row">
               <div class="time">오전 6:30</div><div class="toggle on"></div>
@@ -791,7 +789,7 @@
 
     <!-- A6 권한 -->
     <div class="phone-wrap">
-      <div class="phone-label">6. 권한<small>설정 › 권한 · 알람·알림 두 줄과 상태</small></div>
+      <div class="phone-label">6. 권한<small>설정 › 권한 · 알람 권한과 상태(권한이 늘면 줄 추가)</small></div>
       <div class="phone"><div class="notch"></div>
         <div class="screen">
           <div class="status"><span>9:41</span><span>▮▮▮ 🔋</span></div>
@@ -802,14 +800,9 @@
               <div class="perm-txt"><b>알람</b><span>정해진 시각에 알람을 울려요</span></div>
               <div class="perm-act"><span class="pill off">꺼짐</span><span class="go">설정 열기</span></div>
             </div>
-            <div class="perm-row">
-              <div class="perm-ico" style="background:var(--cta)">🔔</div>
-              <div class="perm-txt"><b>알림</b><span>퀵알람이 끝나면 알려 줘요</span></div>
-              <div class="perm-act"><span class="pill ask">아직 안 물음</span><span class="go">허용하기</span></div>
-            </div>
           </div>
-          <div class="perm-note" style="padding:10px 18px">설정 → 앱 → 알람천국에서 알림과 알람을 켜 주세요.</div>
-          <div class="perm-note" style="padding:2px 18px;opacity:.8">모두 허용되면 두 줄 모두 <span class="pill ok" style="font-size:9.5px">허용됨</span> 으로 표시돼요.</div>
+          <div class="perm-note" style="padding:10px 18px">설정 → 앱 → 알람천국에서 알람을 켜 주세요.</div>
+          <div class="perm-note" style="padding:2px 18px;opacity:.8">허용되면 <span class="pill ok" style="font-size:9.5px">허용됨</span> 으로 표시되고 버튼이 사라져요.</div>
         </div>
       </div>
     </div>
@@ -905,14 +898,14 @@
 
     <!-- A12 권한 안내: 알람 -->
     <div class="phone-wrap">
-      <div class="phone-label">13. 권한 없음 · 알람<small>알람 저장·켜기가 권한 때문에 실패할 때</small></div>
+      <div class="phone-label">13. 권한 없음 안내<small>알람 저장·켜기, 퀵알람 만들기가 권한 때문에 실패할 때</small></div>
       <div class="phone"><div class="notch"></div>
         <div class="screen-guide">
           <div class="status"><span>9:41</span><span>▮▮▮ 🔋</span></div>
           <div class="g-body">
             <div class="g-ico">⏰</div>
             <h3>알람을 허용하지 않으면<br>알람이 울리지 못해요</h3>
-            <p>설정 → 앱 → 알람천국에서 알림과 알람을 켜 주세요.</p>
+            <p>설정 → 앱 → 알람천국에서 알람을 켜 주세요.</p>
           </div>
           <button class="main" type="button">설정 바로 가기</button>
           <button type="button">나중에</button>
@@ -920,22 +913,6 @@
       </div>
     </div>
 
-    <!-- A13 권한 안내: 알림 -->
-    <div class="phone-wrap">
-      <div class="phone-label">14. 권한 없음 · 알림<small>퀵알람 만들기가 알림 권한 때문에 실패할 때</small></div>
-      <div class="phone"><div class="notch"></div>
-        <div class="screen-guide">
-          <div class="status"><span>9:41</span><span>▮▮▮ 🔋</span></div>
-          <div class="g-body">
-            <div class="g-ico">🔔</div>
-            <h3>알림을 허용하지 않으면<br>퀵알람이 울리지 못해요</h3>
-            <p>설정 → 앱 → 알람천국에서 알림과 알람을 켜 주세요.</p>
-          </div>
-          <button class="main" type="button">설정 바로 가기</button>
-          <button type="button">나중에</button>
-        </div>
-      </div>
-    </div>
   </div>
 
   <!-- ================= B. 확장 ================= -->
@@ -947,7 +924,7 @@
   <div class="gallery">
     <!-- B1 메인 -->
     <div class="phone-wrap">
-      <div class="phone-label">15. 메인 · 다음 기상</div>
+      <div class="phone-label">14. 메인 · 다음 기상</div>
       <div class="phone"><div class="notch"></div>
         <div class="screen-main">
           <div class="status"><span>9:41</span><span>▮▮▮ 🔋</span></div>
@@ -973,7 +950,7 @@
 
     <!-- B2 편집 11절 항목 -->
     <div class="phone-wrap">
-      <div class="phone-label">16. 알람 편집 · 메모·미루기<small>시간·요일·미션 영역은 위쪽(생략)</small></div>
+      <div class="phone-label">15. 알람 편집 · 메모·미루기<small>시간·요일·미션 영역은 위쪽(생략)</small></div>
       <div class="phone"><div class="notch"></div>
         <div class="screen-edit">
           <div class="status"><span>9:41</span><span>▮▮▮ 🔋</span></div>
@@ -997,7 +974,7 @@
 
     <!-- B3 이번 주 일정 -->
     <div class="phone-wrap">
-      <div class="phone-label">17. 이번 주 일정<small>앞으로 7일 · 요일을 누르면 이번만 변경</small></div>
+      <div class="phone-label">16. 이번 주 일정<small>앞으로 7일 · 요일을 누르면 이번만 변경</small></div>
       <div class="phone"><div class="notch"></div>
         <div class="screen">
           <div class="status"><span>9:41</span><span>▮▮▮ 🔋</span></div>
@@ -1016,7 +993,7 @@
 
     <!-- B4 이번만 변경 편집 -->
     <div class="phone-wrap">
-      <div class="phone-label">18. 이번만 변경 편집</div>
+      <div class="phone-label">17. 이번만 변경 편집</div>
       <div class="phone"><div class="notch"></div>
         <div class="screen">
           <div class="status"><span>9:41</span><span>▮▮▮ 🔋</span></div>
@@ -1039,13 +1016,12 @@
 
     <!-- B5 퀵알람 만들기 -->
     <div class="phone-wrap">
-      <div class="phone-label">19. 퀵알람 만들기</div>
+      <div class="phone-label">18. 퀵알람 만들기</div>
       <div class="phone"><div class="notch"></div>
         <div class="screen">
           <div class="status"><span>9:41</span><span>▮▮▮ 🔋</span></div>
           <div class="nav"><span class="link">취소</span><span>퀵알람</span><span></span></div>
-          <div class="muted" style="padding:0 18px 8px">몇 분 뒤에 한 번만 울려요. 미션은 없고, 기기의 소리·진동 설정을 따라요.</div>
-          <div class="warn-inline"><span>🔕</span><span style="flex:1">알림이 꺼져 있어요. 켜지 않으면 퀵알람이 울리지 못해요.<small style="display:block;font-weight:600;color:var(--text-muted)">(알림 권한이 꺼져 있을 때만 표시)</small></span><span class="go">설정 열기</span></div>
+          <div class="muted" style="padding:0 18px 8px">몇 분 뒤에 한 번만 울려요. 미션 없이 바로 끌 수 있어요.</div>
           <div class="presets">
             <div>1<small>분</small></div><div>5<small>분</small></div><div class="on">10<small>분</small></div>
             <div>15<small>분</small></div><div>30<small>분</small></div><div>60<small>분</small></div>
@@ -1060,7 +1036,7 @@
 
     <!-- B6 실행 + 미루기·메모 -->
     <div class="phone-wrap">
-      <div class="phone-label">20. 알람 실행 · 미루기·메모</div>
+      <div class="phone-label">19. 알람 실행 · 미루기·메모</div>
       <div class="phone"><div class="notch"></div>
         <div class="screen-ring video">
           <div class="status" style="color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.2)"><span>05:30</span><span>▮▮▮ 🔋</span></div>
@@ -1076,13 +1052,14 @@
 
     <!-- B7 퀵알람 울림 -->
     <div class="phone-wrap">
-      <div class="phone-label">21. 퀵알람 울림<small>일반 알림으로 울림 · 무음·집중 모드·진동 설정을 따름</small></div>
+      <div class="phone-label">20. 퀵알람 울림<small>시스템 알람 · 무음 모드에서도 울림 · 시스템 중지 버튼으로 바로 끔</small></div>
       <div class="phone"><div class="notch"></div>
         <div class="screen-sys">
           <div class="sys-time">9:51</div>
           <div class="sys-card">
-            <div class="sub" style="margin:0 0 4px">알람천국 · 지금</div>
             <div class="ttl">⏱ 퀵알람 · 10분</div>
+            <div class="sub">알람천국</div>
+            <div class="btns" style="grid-template-columns:1fr"><span class="stop">중지</span></div>
           </div>
         </div>
       </div>

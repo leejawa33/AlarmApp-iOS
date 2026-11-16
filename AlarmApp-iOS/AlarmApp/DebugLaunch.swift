@@ -5,8 +5,8 @@ import Foundation
 /// - `-demoSeed`: 알람이 없으면 샘플 3개 생성
 /// - `-demoScreen edit|new|quick|settings|permissions|language|prompts|preview|ring|openSettings`: 시작 시 해당 화면 열기
 ///   (`ring`: 첫 알람이 울린 것처럼 실행 화면을 띄운다. 시스템 알람은 안 울리므로 앱이 소리를 낸다)
-/// - `-demoPermission alarm=denied,notification=notDetermined`: 권한 상태를 가짜로 주입(값: authorized|denied|notDetermined).
-///   `denied`/`notDetermined`면 해당 예약이 실제처럼 권한 오류로 실패한다. 안내 화면: `-demoScreen permissionGuide|permissionGuideNotification`
+/// - `-demoPermission denied`: 알람 권한 상태를 가짜로 주입(값: authorized|denied|notDetermined).
+///   `denied`/`notDetermined`면 예약이 실제처럼 권한 오류로 실패한다. 안내 화면: `-demoScreen permissionGuide`
 /// - 시스템 언어 확인: `-AppleLanguages "(en)"`
 enum DebugLaunch {
     static var arguments: [String] { ProcessInfo.processInfo.arguments }
@@ -16,22 +16,15 @@ enum DebugLaunch {
         guard let i = arguments.firstIndex(of: "-demoLanguage"), i + 1 < arguments.count else { return nil }
         return arguments[i + 1]
     }
-    /// `-demoPermission alarm=<상태>,notification=<상태>` (없으면 nil → 실제 권한 사용)
-    static var permissionOverride: (alarm: AlarmAuthorization?, notification: AlarmAuthorization?)? {
+    /// `-demoPermission authorized|denied|notDetermined` (없으면 nil → 실제 권한 사용)
+    static var permissionOverride: AlarmAuthorization? {
         guard let i = arguments.firstIndex(of: "-demoPermission"), i + 1 < arguments.count else { return nil }
-        var alarm: AlarmAuthorization?, notification: AlarmAuthorization?
-        for pair in arguments[i + 1].split(separator: ",") {
-            let parts = pair.split(separator: "=").map(String.init)
-            guard parts.count == 2 else { continue }
-            let value: AlarmAuthorization? = switch parts[1] {
-            case "authorized": .authorized
-            case "denied": .denied
-            case "notDetermined": .notDetermined
-            default: nil
-            }
-            if parts[0] == "alarm" { alarm = value } else if parts[0] == "notification" { notification = value }
+        switch arguments[i + 1] {
+        case "authorized": return .authorized
+        case "denied": return .denied
+        case "notDetermined": return .notDetermined
+        default: return nil
         }
-        return (alarm, notification)
     }
 
     private static var screen: String? {
@@ -78,33 +71,18 @@ enum DebugLaunch {
     }
 }
 
-/// `-demoPermission`용: 실제 스케줄러를 감싸 권한 상태만 덮어쓴다. 권한이 없으면 예약이 실제처럼 실패한다.
+/// `-demoPermission`용: 실제 스케줄러를 감싸 알람 권한 상태만 덮어쓴다. 권한이 없으면 예약이 실제처럼 실패한다.
 final class DebugPermissionScheduler: AlarmScheduling {
     private let base: any AlarmScheduling
-    private let alarmOverride: AlarmAuthorization?
-    private let notificationOverride: AlarmAuthorization?
+    private let override: AlarmAuthorization
 
-    init(base: any AlarmScheduling, alarm: AlarmAuthorization?, notification: AlarmAuthorization?) {
+    init(base: any AlarmScheduling, alarm: AlarmAuthorization) {
         self.base = base
-        alarmOverride = alarm
-        notificationOverride = notification
+        override = alarm
     }
 
-    var authorization: AlarmAuthorization { alarmOverride ?? base.authorization }
-    func requestAuthorization() async -> AlarmAuthorization {
-        if let alarmOverride { return alarmOverride }
-        return await base.requestAuthorization()
-    }
-
-    func notificationAuthorization() async -> AlarmAuthorization {
-        if let notificationOverride { return notificationOverride }
-        return await base.notificationAuthorization()
-    }
-
-    func requestNotificationAuthorization() async -> AlarmAuthorization {
-        if let notificationOverride { return notificationOverride }
-        return await base.requestNotificationAuthorization()
-    }
+    var authorization: AlarmAuthorization { override }
+    func requestAuthorization() async -> AlarmAuthorization { override }
 
     func schedule(_ alarm: AlarmSnapshot) async throws {
         guard authorization == .authorized else { throw AlarmSchedulerError.notAuthorized }
@@ -112,12 +90,7 @@ final class DebugPermissionScheduler: AlarmScheduling {
     }
 
     func scheduleOnce(_ alarm: OneShotSnapshot) async throws {
-        switch alarm.kind {
-        case .quick:
-            guard await notificationAuthorization() == .authorized else { throw AlarmSchedulerError.notificationsNotAuthorized }
-        case .snooze:
-            guard authorization == .authorized else { throw AlarmSchedulerError.notAuthorized }
-        }
+        guard authorization == .authorized else { throw AlarmSchedulerError.notAuthorized }
         try await base.scheduleOnce(alarm)
     }
 

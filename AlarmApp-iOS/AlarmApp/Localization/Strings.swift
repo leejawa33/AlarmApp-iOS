@@ -98,8 +98,6 @@ final class Strings {
         case AlarmValidationError.snoozeUnavailable: return self["snooze_unavailable"]
         case AlarmValidationError.quickLimitReached(let max):
             return format("quick_limit", ["max": max])
-        case AlarmServiceError.schedulingFailed(let underlying as AlarmSchedulerError) where underlying == .notificationsNotAuthorized:
-            return self["permission_notification_denied"]
         case AlarmServiceError.schedulingFailed(let underlying as AlarmSchedulerError) where underlying == .notAuthorized:
             return self["permission_alarm_denied"]
         case AlarmServiceError.schedulingFailed: return self["error_scheduling_failed"]

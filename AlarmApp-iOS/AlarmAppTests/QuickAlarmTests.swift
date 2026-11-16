@@ -83,7 +83,7 @@ struct QuickAlarmTests {
     }
 
     @Test func deniedPermissionRemovesRow() async throws {
-        scheduler.notification = .denied // 퀵알람은 알림 권한을 쓴다
+        scheduler.authorization = .denied
         await #expect(throws: AlarmServiceError.self) {
             try await service.createQuickAlarm(minutes: 5, now: now)
         }
@@ -208,69 +208,42 @@ struct QuickAlarmTests {
         #expect(Strings(language: "en").message(for: error).contains("5"))
     }
 
-    @Test func notificationDeniedMessageIsLocalized() {
-        let error = AlarmServiceError.schedulingFailed(underlying: AlarmSchedulerError.notificationsNotAuthorized)
-        for language in Strings.supported {
-            let strings = Strings(language: language)
-            #expect(strings.message(for: error) == strings["permission_notification_denied"])
-            #expect(strings["permission_notification_denied"] != "permission_notification_denied")
-        }
-    }
+    // MARK: 권한 (알람)
 
-    // MARK: 권한 (알림)
-
-    @Test func notificationDeniedBlocksQuickAlarmButNotAlarmPermission() async throws {
-        scheduler.notification = .denied
+    @Test func deniedAlarmPermissionIsDetectedAsPermissionIssue() async throws {
+        scheduler.authorization = .denied
         do {
             try await service.createQuickAlarm(minutes: 5, now: now)
-            Issue.record("알림 권한이 없으면 실패해야 한다")
+            Issue.record("알람 권한이 없으면 실패해야 한다")
         } catch {
-            #expect(AlarmService.permissionIssue(in: error) == .notification)
+            #expect(AlarmService.isPermissionIssue(error))
         }
         #expect(try stored().isEmpty)
-        // 일반 알람 권한과는 별개
-        var draft = service.makeDefaultDraft()
-        draft.title = "알람"
-        try await service.create(draft)
     }
 
     @Test func permissionIssueMapsErrors() {
         let alarm = AlarmServiceError.schedulingFailed(underlying: AlarmSchedulerError.notAuthorized)
-        let notification = AlarmServiceError.schedulingFailed(underlying: AlarmSchedulerError.notificationsNotAuthorized)
         let limit = AlarmServiceError.schedulingFailed(underlying: AlarmSchedulerError.systemLimitReached)
-        #expect(AlarmService.permissionIssue(in: alarm) == .alarm)
-        #expect(AlarmService.permissionIssue(in: notification) == .notification)
-        #expect(AlarmService.permissionIssue(in: limit) == nil)
-        #expect(AlarmService.permissionIssue(in: AlarmValidationError.emptyTitle) == nil)
+        #expect(AlarmService.isPermissionIssue(alarm))
+        #expect(!AlarmService.isPermissionIssue(limit))
+        #expect(!AlarmService.isPermissionIssue(AlarmValidationError.emptyTitle))
     }
 
-    @Test func openSettingsTapRequestsNotificationOnlyWhenUndetermined() async {
-        scheduler.notification = .notDetermined
-        scheduler.notificationAfterRequest = .authorized
-        #expect(await service.handleOpenSettingsTap(.notification) == false, "허용되면 설정 앱으로 보내지 않는다")
-        #expect(service.notificationAuthorization == .authorized)
+    @Test func openSettingsTapRequestsPermissionOnlyWhenUndetermined() async {
+        scheduler.authorization = .notDetermined
+        scheduler.authorizationAfterRequest = .authorized
+        #expect(await service.handleOpenSettingsTap() == false, "허용되면 설정 앱으로 보내지 않는다")
+        #expect(service.authorization == .authorized)
 
-        scheduler.notification = .denied
-        #expect(await service.handleOpenSettingsTap(.notification) == true, "거부 상태면 바로 설정 앱")
-        #expect(service.notificationAuthorization == .denied)
-        #expect(service.authorization(for: .alarm) == .authorized, "알람 권한은 따로")
-    }
-
-    @Test func refreshReadsNotificationState() async {
-        scheduler.notification = .denied
-        await service.refreshNotificationAuthorization()
-        #expect(service.notificationAuthorization == .denied)
-        scheduler.notification = .authorized
-        await service.refreshNotificationAuthorization()
-        #expect(service.notificationAuthorization == .authorized)
+        scheduler.authorization = .denied
+        #expect(await service.handleOpenSettingsTap() == true, "거부 상태면 바로 설정 앱")
     }
 
     @Test func permissionStringsExistInBothLanguages() {
         let keys = ["settings_permissions", "settings_permission_alarm", "settings_permission_alarm_desc",
-                    "settings_permission_notification", "settings_permission_notification_desc",
                     "permission_status_authorized", "permission_status_denied", "permission_status_not_determined",
-                    "permission_allow", "permission_guide_alarm_title", "permission_guide_notification_title",
-                    "permission_go_settings", "permission_later", "quick_notification_off", "permission_settings_path"]
+                    "permission_allow", "permission_guide_alarm_title",
+                    "permission_go_settings", "permission_later", "permission_settings_path", "settings_permissions_attention"]
         for language in Strings.supported {
             let strings = Strings(language: language)
             for key in keys { #expect(strings[key] != key, "\(language): \(key) 누락") }

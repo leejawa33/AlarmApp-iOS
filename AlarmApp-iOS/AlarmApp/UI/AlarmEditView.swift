@@ -18,7 +18,7 @@ struct AlarmEditView: View {
     @State private var showPreview = false
     @State private var isSaving = false
     /// 권한이 없어 예약에 실패했을 때 띄우는 안내 (알람은 저장된 상태)
-    @State private var permissionGuide: PermissionKind?
+    @State private var showPermissionGuide = false
     @State private var showPromptPicker = false
     @State private var prompts: TranscriptionPrompts?
 
@@ -69,7 +69,7 @@ struct AlarmEditView: View {
         .alert(errorMessage ?? "", isPresented: .init(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
             Button(strings["common_ok"]) { if dismissAfterError { dismiss() } }
         }
-        .fullScreenCover(item: $permissionGuide, onDismiss: { dismiss() }) { PermissionGuideView(kind: $0) }
+        .fullScreenCover(isPresented: $showPermissionGuide, onDismiss: { dismiss() }) { PermissionGuideView() }
         .fullScreenCover(isPresented: $showPreview) {
             RingView(mode: .preview(draft))
         }
@@ -291,8 +291,8 @@ struct AlarmEditView: View {
                 dismiss()
             } catch {
                 // 저장은 됐고 예약만 실패(권한 거부 등)면 안내 후 닫는다.
-                if let kind = AlarmService.permissionIssue(in: error) {
-                    permissionGuide = kind
+                if AlarmService.isPermissionIssue(error) {
+                    showPermissionGuide = true
                     return
                 }
                 if case AlarmServiceError.schedulingFailed = error { dismissAfterError = true }

@@ -10,7 +10,7 @@ struct QuickAlarmView: View {
     @State private var selected = QuickAlarmPreset.defaultMinutes
     @State private var isSaving = false
     @State private var errorMessage: String?
-    @State private var permissionGuide: PermissionKind?
+    @State private var showPermissionGuide = false
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 3)
 
@@ -22,7 +22,6 @@ struct QuickAlarmView: View {
                     Text(strings["quick_description"])
                         .font(Theme.rounded(14, weight: .semibold))
                         .foregroundStyle(Theme.textMuted)
-                    if service.notificationAuthorization == .denied { notificationWarning }
                     LazyVGrid(columns: columns, spacing: 10) {
                         ForEach(QuickAlarmPreset.minutes, id: \.self) { minutes in
                             presetButton(minutes)
@@ -45,26 +44,7 @@ struct QuickAlarmView: View {
         .alert(errorMessage ?? "", isPresented: .init(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
             Button(strings["common_ok"]) {}
         }
-        .fullScreenCover(item: $permissionGuide) { PermissionGuideView(kind: $0) }
-        .task { await service.refreshNotificationAuthorization() }
-    }
-
-    /// 알림 권한이 꺼져 있으면 만들기 전에 알려 준다.
-    private var notificationWarning: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "bell.slash.fill").foregroundStyle(Theme.cta)
-            Text(strings["quick_notification_off"])
-                .font(Theme.rounded(13, weight: .bold))
-                .foregroundStyle(Theme.text)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
-            OpenSettingsButton(kind: .notification) { Text(strings["permission_open_settings"]) }
-                .font(Theme.rounded(13, weight: .heavy))
-                .foregroundStyle(Theme.cta)
-        }
-        .padding(12)
-        .background(Theme.chipOn, in: RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.sun))
+        .fullScreenCover(isPresented: $showPermissionGuide) { PermissionGuideView() }
     }
 
     private func presetButton(_ minutes: Int) -> some View {
@@ -109,9 +89,8 @@ struct QuickAlarmView: View {
                 try await service.createQuickAlarm(minutes: selected)
                 dismiss()
             } catch {
-                if let kind = AlarmService.permissionIssue(in: error) {
-                    await service.refreshNotificationAuthorization()
-                    permissionGuide = kind
+                if AlarmService.isPermissionIssue(error) {
+                    showPermissionGuide = true
                 } else {
                     errorMessage = strings.message(for: error)
                 }

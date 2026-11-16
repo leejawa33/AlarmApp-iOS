@@ -1,15 +1,9 @@
 import SwiftUI
 import UIKit
 
-extension PermissionKind: Identifiable {
-    var id: String { self == .alarm ? "alarm" : "notification" }
-}
-
-/// 권한이 없어 알람·퀵알람을 만들 수 없을 때 보여 주는 전체 화면 안내.
-/// `설정 바로 가기` → iPhone 설정의 앱 페이지(알림·알람 권한이 함께 있다), `나중에` → 닫기.
+/// 알람 권한이 없어 알람·퀵알람을 만들 수 없을 때 보여 주는 전체 화면 안내.
+/// `설정 바로 가기` → iPhone 설정의 앱 페이지, `나중에` → 닫기.
 struct PermissionGuideView: View {
-    let kind: PermissionKind
-
     @Environment(AlarmService.self) private var service
     @Environment(Strings.self) private var strings
     @Environment(\.openURL) private var openURL
@@ -18,7 +12,7 @@ struct PermissionGuideView: View {
     var body: some View {
         VStack(spacing: 0) {
             Spacer()
-            Image(systemName: kind == .alarm ? "alarm.fill" : "bell.fill")
+            Image(systemName: "alarm.fill")
                 .font(.system(size: 64, weight: .bold))
                 .foregroundStyle(Theme.textMuted.opacity(0.5))
                 .overlay {
@@ -26,7 +20,7 @@ struct PermissionGuideView: View {
                 }
                 .accessibilityHidden(true)
                 .padding(.bottom, 20)
-            Text(strings[kind == .alarm ? "permission_guide_alarm_title" : "permission_guide_notification_title"])
+            Text(strings["permission_guide_alarm_title"])
                 .font(Theme.rounded(20, weight: .heavy))
                 .foregroundStyle(Theme.cta)
                 .multilineTextAlignment(.center)
@@ -56,7 +50,7 @@ struct PermissionGuideView: View {
 
     private func goToSettings() {
         Task {
-            if await service.handleOpenSettingsTap(kind), let url = URL(string: UIApplication.openSettingsURLString) {
+            if await service.handleOpenSettingsTap(), let url = URL(string: UIApplication.openSettingsURLString) {
                 openURL(url)
             }
             dismiss()
@@ -65,6 +59,5 @@ struct PermissionGuideView: View {
 }
 
 #if DEBUG
-#Preview("알람") { PermissionGuideView(kind: .alarm).previewEnvironment() }
-#Preview("알림") { PermissionGuideView(kind: .notification).previewEnvironment() }
+#Preview { PermissionGuideView().previewEnvironment() }
 #endif

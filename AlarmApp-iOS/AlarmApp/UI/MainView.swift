@@ -14,7 +14,7 @@ struct MainView: View {
     @State private var editing: EditTarget?
     @State private var showQuickAlarm = false
     @State private var errorMessage: String?
-    @State private var permissionGuide: PermissionKind?
+    @State private var showPermissionGuide = false
     #if DEBUG
     @State private var showSettings = false
     @State private var showPreview = false
@@ -45,8 +45,7 @@ struct MainView: View {
             case "edit": if let first = alarms.first { editing = .existing(first) }
             case "prompts": if let first = alarms.first { DebugLaunch.pendingPromptPicker = true; editing = .existing(first) }
             case "permissions": DebugLaunch.pendingPermissionsScreen = true; showSettings = true
-            case "permissionGuide": permissionGuide = .alarm
-            case "permissionGuideNotification": permissionGuide = .notification
+            case "permissionGuide": showPermissionGuide = true
             case "settings": showSettings = true
             case "language": DebugLaunch.pendingLanguageScreen = true; showSettings = true
             case "preview": showPreview = true
@@ -74,7 +73,7 @@ struct MainView: View {
         .alert(errorMessage ?? "", isPresented: .init(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
             Button(strings["common_ok"]) {}
         }
-        .fullScreenCover(item: $permissionGuide) { PermissionGuideView(kind: $0) }
+        .fullScreenCover(isPresented: $showPermissionGuide) { PermissionGuideView() }
     }
 
     private var background: some View {
@@ -259,7 +258,7 @@ struct MainView: View {
             do {
                 try await service.setEnabled(alarm, enabled)
             } catch {
-                if let kind = AlarmService.permissionIssue(in: error) { permissionGuide = kind } else {
+                if AlarmService.isPermissionIssue(error) { showPermissionGuide = true } else {
                     errorMessage = strings.message(for: error)
                 }
             }

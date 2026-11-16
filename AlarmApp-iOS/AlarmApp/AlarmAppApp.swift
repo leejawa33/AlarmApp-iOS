@@ -1,6 +1,5 @@
 import SwiftData
 import SwiftUI
-import UserNotifications
 
 @main
 struct AlarmAppApp: App {
@@ -36,10 +35,9 @@ struct AlarmAppApp: App {
             : AlarmKitScheduler(catalog: catalog, label: { strings[$0] })
         #if DEBUG
         if let override = DebugLaunch.permissionOverride {
-            scheduler = DebugPermissionScheduler(base: scheduler, alarm: override.alarm, notification: override.notification)
+            scheduler = DebugPermissionScheduler(base: scheduler, alarm: override)
         }
         #endif
-        if !Self.isRunningTests { UNUserNotificationCenter.current().delegate = NotificationPresenter.shared }
         _alarmService = State(initialValue: AlarmService(context: container.mainContext, catalog: catalog, scheduler: scheduler))
         _strings = State(initialValue: strings)
     }
@@ -58,10 +56,7 @@ struct AlarmAppApp: App {
             // 설정 앱에서 권한을 켜고 돌아온 경우 등: 권한 상태 갱신 + 예약 다시 맞추기
             guard phase == .active, !Self.isRunningTests else { return }
             alarmService.refreshAuthorization()
-            Task {
-                await alarmService.refreshNotificationAuthorization()
-                try? await alarmService.reconcile()
-            }
+            Task { try? await alarmService.reconcile() }
         }
         .modelContainer(container)
         .environment(alarmService)

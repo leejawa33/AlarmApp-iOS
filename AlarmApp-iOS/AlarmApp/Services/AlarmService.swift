@@ -42,14 +42,6 @@ struct RingTarget {
     let snoozesUsed: Int
 }
 
-/// 앱이 쓰는 권한 두 가지. iPhone 설정의 앱 페이지 한 곳에서 함께 켜고 끈다.
-nonisolated enum PermissionKind: Sendable, Equatable {
-    /// AlarmKit 알람 권한 (일반 알람·미루기)
-    case alarm
-    /// 알림 권한 (퀵알람)
-    case notification
-}
-
 nonisolated enum AlarmServiceError: Error {
     /// SwiftData에는 저장됐지만 OS 스케줄 반영에 실패함. 다음 `reconcile()`에서 다시 맞춘다.
     case schedulingFailed(underlying: any Error)
@@ -74,8 +66,6 @@ final class AlarmService {
 
     /// 알람 권한 상태. 메인 화면 경고 배너·설정 화면에서 쓴다.
     private(set) var authorization: AlarmAuthorization
-    /// 알림 권한 상태(퀵알람). 알람 권한과 별개. 비동기로만 읽을 수 있어 `refreshNotificationAuthorization()`으로 갱신한다.
-    private(set) var notificationAuthorization: AlarmAuthorization = .notDetermined
 
     init(context: ModelContext, catalog: AssetCatalog, scheduler: any AlarmScheduling,
          ringing: RingingAlarmCenter = .shared) {
@@ -101,37 +91,17 @@ final class AlarmService {
     /// `설정 열기` 버튼 동작. 설정 앱을 열어야 하면 true.
     /// - 아직 안 물었으면: 앱 안 권한 창 → 거절했을 때만 설정 앱
     /// - 허용·거부 상태면: 바로 설정 앱 (켜져 있어도 확인·끄기를 할 수 있어야 한다)
-    func handleOpenSettingsTap(_ kind: PermissionKind = .alarm) async -> Bool {
-        switch kind {
-        case .alarm:
-            refreshAuthorization()
-            guard authorization == .notDetermined else { return true }
-            return await requestAuthorization() != .authorized
-        case .notification:
-            await refreshNotificationAuthorization()
-            guard notificationAuthorization == .notDetermined else { return true }
-            notificationAuthorization = await scheduler.requestNotificationAuthorization()
-            return notificationAuthorization != .authorized
-        }
+    func handleOpenSettingsTap() async -> Bool {
+        refreshAuthorization()
+        guard authorization == .notDetermined else { return true }
+        return await requestAuthorization() != .authorized
     }
 
-    func refreshNotificationAuthorization() async {
-        notificationAuthorization = await scheduler.notificationAuthorization()
-    }
-
-    func authorization(for kind: PermissionKind) -> AlarmAuthorization {
-        kind == .alarm ? authorization : notificationAuthorization
-    }
-
-    /// 에러가 권한 때문이면 어느 권한인지. 안내 화면(`PermissionGuideView`)을 띄울지 판단하는 데 쓴다.
-    static func permissionIssue(in error: any Error) -> PermissionKind? {
+    /// 에러가 알람 권한 때문인지. 안내 화면(`PermissionGuideView`)을 띄울지 판단하는 데 쓴다.
+    static func isPermissionIssue(_ error: any Error) -> Bool {
         guard case AlarmServiceError.schedulingFailed(let underlying) = error,
-              let reason = underlying as? AlarmSchedulerError else { return nil }
-        switch reason {
-        case .notAuthorized: return .alarm
-        case .notificationsNotAuthorized: return .notification
-        default: return nil
-        }
+              let reason = underlying as? AlarmSchedulerError else { return false }
+        return reason == .notAuthorized
     }
 
     /// 앱이 활성화될 때 호출 (설정 앱에서 권한을 바꾸고 돌아온 경우)
@@ -233,7 +203,7 @@ final class AlarmService {
     ///   권한이 없으면 아무것도 하지 않고, 권한 요청은 사용자 동작(저장·켜기)에서만 한다.
     func reconcile() async throws {
         defer { refreshAuthorization() }
-        try? await purgeFiredQuickAlarms() // 퀵알람은 알림 권한만 있으면 되므로 AlarmKit 권한과 무관하게 정리
+        try? await purgeFiredQuickAlarms() // 끝난 퀵알람 행 정리(권한이 없어도 지울 수 있다)
         guard scheduler.authorization == .authorized else { return }
         let enabled = try context.fetch(FetchDescriptor<Alarm>(predicate: #Predicate { $0.isEnabled }))
         let enabledIDs = Set(enabled.map(\.id))

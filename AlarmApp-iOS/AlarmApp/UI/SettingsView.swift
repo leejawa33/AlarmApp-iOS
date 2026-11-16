@@ -15,7 +15,7 @@ struct SettingsView: View {
 
     /// 허용되지 않은 권한이 하나라도 있으면 권한 줄에 "확인 필요"를 보여 준다.
     private var needsAttention: Bool {
-        service.authorization != .authorized || service.notificationAuthorization != .authorized
+        service.authorization != .authorized
     }
 
     var body: some View {
@@ -74,7 +74,6 @@ struct SettingsView: View {
         .toolbar(.visible, for: .navigationBar)
         .navigationDestination(isPresented: $showLanguage) { LanguageSettingsView() }
         .navigationDestination(isPresented: $showPermissions) { PermissionsView() }
-        .task { await service.refreshNotificationAuthorization() }
         .onAppear {
             service.refreshAuthorization()
             // 언어 화면에서 돌아올 때마다 현재 값을 다시 읽는다.
@@ -93,7 +92,7 @@ struct SettingsView: View {
     }
 }
 
-/// 권한 화면: 알람·알림 두 줄을 항상 상태 배지와 함께 보여 준다. 허용 전 줄에만 버튼이 있다.
+/// 권한 화면: 알람 권한 한 줄을 항상 상태 배지와 함께 보여 준다. 허용 전에만 버튼이 있다. (권한이 늘면 줄을 추가한다)
 struct PermissionsView: View {
     @Environment(AlarmService.self) private var service
     @Environment(Strings.self) private var strings
@@ -102,9 +101,7 @@ struct PermissionsView: View {
         ScrollView {
             VStack(spacing: 12) {
                 Block(label: "") {
-                    PermissionRow(kind: .alarm)
-                    Divider()
-                    PermissionRow(kind: .notification)
+                    PermissionRow()
                 }
                 Text(strings["permission_settings_path"])
                     .font(Theme.rounded(12, weight: .semibold))
@@ -118,33 +115,29 @@ struct PermissionsView: View {
         .background(Theme.bg.ignoresSafeArea())
         .navigationTitle(strings["settings_permissions"])
         .navigationBarTitleDisplayMode(.inline)
-        .task { await service.refreshNotificationAuthorization() }
         .onAppear { service.refreshAuthorization() }
     }
 }
 
 /// 권한 한 줄: 아이콘 · 이름·설명 · 상태 배지 · (허용이 아니면) 설정 열기/허용하기
 struct PermissionRow: View {
-    let kind: PermissionKind
     @Environment(AlarmService.self) private var service
     @Environment(Strings.self) private var strings
 
-    private var prefix: String { kind == .alarm ? "settings_permission_alarm" : "settings_permission_notification" }
-
     var body: some View {
-        let status = service.authorization(for: kind)
+        let status = service.authorization
         HStack(alignment: .center, spacing: 12) {
-            Image(systemName: kind == .alarm ? "alarm.fill" : "bell.fill")
+            Image(systemName: "alarm.fill")
                 .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(.white)
                 .frame(width: 34, height: 34)
-                .background(kind == .alarm ? Theme.sunDeep : Theme.cta, in: RoundedRectangle(cornerRadius: 9))
+                .background(Theme.sunDeep, in: RoundedRectangle(cornerRadius: 9))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
-                Text(strings[prefix])
+                Text(strings["settings_permission_alarm"])
                     .font(Theme.rounded(16, weight: .bold))
                     .foregroundStyle(Theme.text)
-                Text(strings["\(prefix)_desc"])
+                Text(strings["settings_permission_alarm_desc"])
                     .font(Theme.rounded(12, weight: .semibold))
                     .foregroundStyle(Theme.textMuted)
                     .fixedSize(horizontal: false, vertical: true)
@@ -153,7 +146,7 @@ struct PermissionRow: View {
             VStack(alignment: .trailing, spacing: 6) {
                 badge(status)
                 if status != .authorized {
-                    OpenSettingsButton(kind: kind) {
+                    OpenSettingsButton {
                         Text(strings[status == .notDetermined ? "permission_allow" : "permission_open_settings"])
                     }
                     .font(Theme.rounded(13, weight: .heavy))
