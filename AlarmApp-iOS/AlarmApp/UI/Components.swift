@@ -110,3 +110,17 @@ struct OpenSettingsButton<Label: View>: View {
         }
     }
 }
+
+/// "👑 유료 예정" 표시. 유료로 전환될 기능 옆에 붙인다.
+struct PaidSoonBadge: View {
+    @Environment(Strings.self) private var strings
+
+    var body: some View {
+        Text("👑 \(strings["paid_soon"])")
+            .font(Theme.rounded(10, weight: .heavy))
+            .foregroundStyle(Theme.sunDeep)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 2)
+            .background(Theme.sun.opacity(0.2), in: Capsule())
+    }
+}
