@@ -959,7 +959,7 @@
 
     <!-- B2 편집 11절 항목 -->
     <div class="phone-wrap">
-      <div class="phone-label">15. 알람 편집 · 메모·미루기<small>이번 주 일정은 별도 페이지로 이동 · 시간·요일·미션 영역은 위쪽(생략)</small></div>
+      <div class="phone-label">15. 알람 편집 · 메모·미루기<small>미루기·이번 주 일정은 별도 페이지로 이동 · 시간·요일·미션 영역은 위쪽(생략)</small></div>
       <div class="phone"><div class="notch"></div>
         <div class="screen-edit">
           <div class="status"><span>9:41</span><span>▮▮▮ 🔋</span></div>
@@ -971,10 +971,7 @@
               <div class="field" style="border-color:#eee7df;font-size:13px;min-height:0">오늘은 여섯 시 반에 출발해야 해요. 출입증 챙기세요</div>
               <div class="chips" style="margin-top:8px"><span>🔊 들어보기</span></div>
               <div class="muted" style="margin-top:8px;font-size:11px">읽는 음성은 설정 → 손쉬운 사용 → 말하기 콘텐츠 → 음성을 따라요.</div></div>
-            <div class="block"><label>미루기</label>
-              <div style="display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:14px;margin-bottom:8px"><span>미루기 사용</span><div class="toggle on" style="grid-row:auto"></div></div>
-              <div class="row" style="padding:9px 12px;font-size:13px;margin-bottom:6px">간격 <span class="v">5분 ›</span></div>
-              <div class="row" style="padding:9px 12px;font-size:13px">횟수 제한 <span class="v">3회 ›</span></div></div>
+            <div class="row">미루기 <span class="v">사용 · 5분 · 3회 ›</span></div>
             <div class="row">이번 주 일정 <span class="v">›</span></div>
             <div class="muted" style="text-align:center">⋮ 삭제</div>
           </div>
@@ -983,9 +980,29 @@
       </div>
     </div>
 
+    <!-- B2-2 미루기 설정 페이지 -->
+    <div class="phone-wrap">
+      <div class="phone-label">16. 미루기<small>편집 화면의 '미루기' 줄에서 이동 · 사용 켜면 간격·횟수 제한 선택</small></div>
+      <div class="phone"><div class="notch"></div>
+        <div class="screen">
+          <div class="status"><span>9:41</span><span>▮▮▮ 🔋</span></div>
+          <div class="nav"><span class="link">‹ 편집</span><span>미루기</span><span></span></div>
+          <div class="stack" style="gap:8px">
+            <div class="row">미루기 사용 <div class="toggle on" style="grid-row:auto"></div></div>
+            <div class="muted" style="padding:0 4px">울릴 때 실행 화면의 미루기 버튼으로 잠시 뒤 다시 울리게 해요. 끄려면 미션을 해야 해요.</div>
+            <div class="group-label" style="margin:6px 4px 0">간격</div>
+            <div class="chips" style="flex-wrap:wrap;gap:6px"><span style="flex:0 0 calc(20% - 5px);padding:9px 0">1분</span><span style="flex:0 0 calc(20% - 5px);padding:9px 0">3분</span><b style="flex:0 0 calc(20% - 5px);padding:9px 0">5분</b><span style="flex:0 0 calc(20% - 5px);padding:9px 0">10분</span><span style="flex:0 0 calc(20% - 5px);padding:9px 0">15분</span><span style="flex:0 0 calc(20% - 5px);padding:9px 0">20분</span><span style="flex:0 0 calc(20% - 5px);padding:9px 0">25분</span><span style="flex:0 0 calc(20% - 5px);padding:9px 0">30분</span><span style="flex:0 0 calc(20% - 5px);padding:9px 0">45분</span><span style="flex:0 0 calc(20% - 5px);padding:9px 0">60분</span></div>
+            <div class="group-label" style="margin:6px 4px 0">횟수 제한</div>
+            <div class="chips" style="flex-wrap:wrap;gap:6px"><span style="flex:0 0 calc(33.3% - 4px);padding:9px 0">무제한</span><span style="flex:0 0 calc(33.3% - 4px);padding:9px 0">1회</span><span style="flex:0 0 calc(33.3% - 4px);padding:9px 0">2회</span><b style="flex:0 0 calc(33.3% - 4px);padding:9px 0">3회</b><span style="flex:0 0 calc(33.3% - 4px);padding:9px 0">5회</span><span style="flex:0 0 calc(33.3% - 4px);padding:9px 0">10회</span></div>
+            <div class="muted" style="padding:2px 4px;line-height:1.5">사용을 끄면 간격·횟수 제한은 숨겨져요. 편집 화면에는 "사용 · 5분 · 3회"처럼 요약만 보여요.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- B3 이번 주 일정 (알람 편집에서 이동하는 별도 페이지) -->
     <div class="phone-wrap">
-      <div class="phone-label">16. 이번 주 일정<small>별도 페이지 · 지금부터 7일 · 월요일 12:43 기준 예시</small></div>
+      <div class="phone-label">17. 이번 주 일정<small>별도 페이지 · 지금부터 7일 · 월요일 12:43 기준 예시</small></div>
       <div class="phone"><div class="notch"></div>
         <div class="screen">
           <div class="status"><span>9:41</span><span>▮▮▮ 🔋</span></div>
@@ -997,7 +1014,7 @@
             <div class="li compact"><div class="d">목요일 · 11/19</div><div class="t">오전 7:00</div><div class="r">기본</div></div>
             <div class="li compact"><div class="d">금요일 · 11/20</div><div class="t">오전 7:00</div><div class="r">기본</div></div>
             <div class="li chg compact"><div class="d">월요일 · 11/23</div><div class="t">오전 5:30</div><div class="r">이번만 변경</div></div>
-            <div class="muted" style="line-height:1.5;padding:2px 4px">오늘(월요일) 알람은 이미 울려서 목록에 없어요. 다음 주 월요일부터 바꿀 수 있어요.<br>편집 화면에서 요일·시각을 바꾸면 이 목록에 바로 반영돼요. 이번만 변경은 저장한 뒤에 할 수 있어요.</div>
+            <div class="muted" style="line-height:1.5;padding:2px 4px">오늘(월요일) 알람은 이미 울려서 목록에 없어요. 다음 주 월요일부터 바꿀 수 있어요.<br>편집 화면에서 요일·시각을 바꾸면 이 목록에 바로 반영돼요. 저장하지 않은 변경이 있을 때 일정을 누르면 "저장하고 계속"을 물어요.</div>
           </div>
         </div>
       </div>
@@ -1005,7 +1022,7 @@
 
     <!-- B4 이번만 변경 편집 -->
     <div class="phone-wrap">
-      <div class="phone-label">17. 이번만 변경 편집</div>
+      <div class="phone-label">18. 이번만 변경 편집</div>
       <div class="phone"><div class="notch"></div>
         <div class="screen">
           <div class="status"><span>9:41</span><span>▮▮▮ 🔋</span></div>
@@ -1028,7 +1045,7 @@
 
     <!-- B5 퀵알람 만들기 -->
     <div class="phone-wrap">
-      <div class="phone-label">18. 퀵알람 만들기</div>
+      <div class="phone-label">19. 퀵알람 만들기</div>
       <div class="phone"><div class="notch"></div>
         <div class="screen">
           <div class="status"><span>9:41</span><span>▮▮▮ 🔋</span></div>
@@ -1048,7 +1065,7 @@
 
     <!-- B6 실행 + 미루기·메모 -->
     <div class="phone-wrap">
-      <div class="phone-label">19. 알람 실행 · 미루기·메모</div>
+      <div class="phone-label">20. 알람 실행 · 미루기·메모</div>
       <div class="phone"><div class="notch"></div>
         <div class="screen-ring video">
           <div class="status" style="color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.2)"><span>05:30</span><span>▮▮▮ 🔋</span></div>
@@ -1064,7 +1081,7 @@
 
     <!-- B7 퀵알람 울림 -->
     <div class="phone-wrap">
-      <div class="phone-label">20. 퀵알람 울림<small>시스템 알람 · 무음 모드에서도 울림 · 시스템 중지 버튼으로 바로 끔</small></div>
+      <div class="phone-label">21. 퀵알람 울림<small>시스템 알람 · 무음 모드에서도 울림 · 시스템 중지 버튼으로 바로 끔</small></div>
       <div class="phone"><div class="notch"></div>
         <div class="screen-sys">
           <div class="sys-time">9:51</div>

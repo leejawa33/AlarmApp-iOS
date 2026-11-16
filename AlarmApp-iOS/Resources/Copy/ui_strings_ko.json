@@ -136,6 +136,11 @@
   "edit_memo_voice_hint": "읽는 음성은 설정 → 손쉬운 사용 → 말하기 콘텐츠 → 음성을 따라요.",
   "edit_snooze_use": "미루기 사용",
   "schedule_note_rule": "오늘 이미 울린 알람은 목록에 없어요. 같은 요일은 다음 주 알람부터 바꿀 수 있어요.",
-  "schedule_note_live": "편집 화면에서 요일·시각을 바꾸면 이 목록에 바로 반영돼요. 이번만 변경은 저장한 뒤에 할 수 있어요.",
-  "schedule_save_first": "먼저 알람을 저장한 뒤에 바꿀 수 있어요."
+  "schedule_note_live": "편집 화면에서 요일·시각을 바꾸면 이 목록에 바로 반영돼요. 저장하지 않은 변경이 있을 때 일정을 누르면 저장하고 계속할 수 있어요.",
+  "schedule_save_first": "저장하지 않은 변경이 있어요. 저장하고 이 날을 바꿀까요?",
+  "schedule_save_continue": "저장하고 계속",
+  "snooze_summary": "사용 · {interval} · {limit}",
+  "snooze_summary_off": "사용 안 함",
+  "snooze_page_description": "울릴 때 실행 화면의 미루기 버튼으로 잠시 뒤 다시 울리게 해요. 끄려면 미션을 해야 해요.",
+  "snooze_page_note": "사용을 끄면 간격·횟수 제한은 숨겨져요. 편집 화면에는 요약만 보여요."
 }

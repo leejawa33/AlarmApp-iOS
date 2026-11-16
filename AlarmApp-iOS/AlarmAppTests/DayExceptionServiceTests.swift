@@ -378,7 +378,7 @@ struct RingMemoTests {
 
     @Test func stringsExistInBothLanguages() {
         let keys = ["schedule_title", "schedule_description", "schedule_empty", "schedule_badge_base", "schedule_badge_changed",
-                    "schedule_badge_skipped", "schedule_row_skipped", "schedule_note_rule", "schedule_note_live", "schedule_save_first", "exception_title", "exception_mode", "exception_change", "exception_skip",
+                    "schedule_badge_skipped", "schedule_row_skipped", "schedule_note_rule", "schedule_note_live", "schedule_save_first", "schedule_save_continue", "exception_title", "exception_mode", "exception_change", "exception_skip",
                     "exception_time", "exception_base_note", "exception_skip_note", "exception_next_week", "exception_memo",
                     "memo_mode_inherit", "memo_mode_custom", "memo_mode_silent", "exception_memo_placeholder", "exception_clear",
                     "exception_clear_hint", "exception_save", "error_exception_unavailable", "error_exception_time",

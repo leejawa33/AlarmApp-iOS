@@ -62,6 +62,17 @@ final class Strings {
         return language == "ko" ? "\(period) \(clock)" : "\(clock) \(period)"
     }
 
+    /// 미루기 횟수 제한 문구: 무제한 / N회
+    func snoozeLimitText(_ limit: Int) -> String {
+        limit == SnoozeOption.unlimited ? self["snooze_limit_unlimited"] : format("snooze_limit_value", ["count": limit])
+    }
+
+    /// 편집 화면 `미루기` 줄의 요약: "사용 · 5분 · 3회" / "사용 안 함"
+    func snoozeSummary(enabled: Bool, minutes: Int, limit: Int) -> String {
+        guard enabled else { return self["snooze_summary_off"] }
+        return format("snooze_summary", ["interval": format("snooze_interval_value", ["minutes": minutes]), "limit": snoozeLimitText(limit)])
+    }
+
     func weekdayShort(_ day: Weekday) -> String {
         let key: String
         switch day {

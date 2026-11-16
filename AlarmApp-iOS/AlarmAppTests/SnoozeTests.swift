@@ -251,4 +251,19 @@ struct SnoozeTests {
         #expect(Strings(language: "en").format("ring_snooze", ["minutes": 5]) == "Snooze 5 min")
         #expect(Strings(language: "ko").message(for: AlarmValidationError.snoozeUnavailable) == Strings(language: "ko")["snooze_unavailable"])
     }
+
+    @Test func summaryTextForEditRow() {
+        let ko = Strings(language: "ko"), en = Strings(language: "en")
+        #expect(ko.snoozeSummary(enabled: true, minutes: 5, limit: 3) == "사용 · 5분 · 3회")
+        #expect(ko.snoozeSummary(enabled: true, minutes: 10, limit: SnoozeOption.unlimited) == "사용 · 10분 · 무제한")
+        #expect(ko.snoozeSummary(enabled: false, minutes: 5, limit: 3) == "사용 안 함")
+        #expect(en.snoozeSummary(enabled: true, minutes: 5, limit: 3).contains("5 min"))
+        #expect(en.snoozeSummary(enabled: false, minutes: 5, limit: 3) == "Off")
+        for language in Strings.supported {
+            let strings = Strings(language: language)
+            for key in ["snooze_page_description", "snooze_page_note", "snooze_summary", "snooze_summary_off"] {
+                #expect(strings[key] != key, "\(language): \(key) 누락")
+            }
+        }
+    }
 }

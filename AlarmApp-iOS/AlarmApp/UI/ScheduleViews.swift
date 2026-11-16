@@ -7,12 +7,15 @@ struct ScheduleView: View {
     let alarm: Alarm
     /// 편집 화면에서 지금 고른 요일·시각
     let schedule: AlarmSchedule
+    /// 편집 중인 알람 내용을 저장한다(저장하지 않은 요일·시각 변경이 있을 때 "저장하고 계속"에서 쓴다).
+    let saveDraft: () async throws -> Void
 
     @Environment(AlarmService.self) private var service
     @Environment(Strings.self) private var strings
     @State private var occurrences: [Occurrence] = []
     @State private var editing: Occurrence?
-    @State private var showSaveFirst = false
+    @State private var pendingOccurrence: Occurrence?
+    @State private var errorMessage: String?
 
     private var isDirty: Bool { schedule != alarm.schedule }
 
@@ -32,7 +35,7 @@ struct ScheduleView: View {
                 } else {
                     ForEach(occurrences) { occurrence in
                         Button {
-                            if isDirty { showSaveFirst = true } else { editing = occurrence }
+                            if isDirty { pendingOccurrence = occurrence } else { editing = occurrence }
                         } label: { row(occurrence) }
                             .buttonStyle(.plain)
                     }
@@ -49,7 +52,12 @@ struct ScheduleView: View {
         .background(Theme.bg.ignoresSafeArea())
         .navigationTitle(strings["schedule_title"])
         .navigationBarTitleDisplayMode(.inline)
-        .alert(strings["schedule_save_first"], isPresented: $showSaveFirst) {
+        .confirmationDialog(strings["schedule_save_first"], isPresented: .init(get: { pendingOccurrence != nil }, set: { if !$0 { pendingOccurrence = nil } }),
+                            titleVisibility: .visible) {
+            Button(strings["schedule_save_continue"]) { saveThenEdit() }
+            Button(strings["edit_cancel"], role: .cancel) {}
+        }
+        .alert(errorMessage ?? "", isPresented: .init(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
             Button(strings["common_ok"]) {}
         }
         .onAppear {
@@ -64,6 +72,20 @@ struct ScheduleView: View {
         .onChange(of: schedule) { reload() }
         .sheet(item: $editing, onDismiss: reload) { occurrence in
             NavigationStack { ExceptionEditView(alarm: alarm, occurrence: occurrence) }
+        }
+    }
+
+    /// 편집 중인 변경을 저장한 뒤 누른 회차의 이번만 변경을 연다.
+    private func saveThenEdit() {
+        guard let target = pendingOccurrence else { return }
+        Task {
+            do {
+                try await saveDraft()
+                reload()
+                editing = occurrences.first { $0.dayKey == target.dayKey } ?? target
+            } catch {
+                errorMessage = strings.message(for: error)
+            }
         }
     }
 
