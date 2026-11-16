@@ -24,6 +24,9 @@ final class Alarm {
     var snoozeEnabled: Bool = false
     var snoozeMinutes: Int = SnoozeOption.defaultMinutes
     var snoozeLimit: Int = SnoozeOption.defaultLimit
+    /// 메모 읽어주기 (기획서 11.5). 표시 이름과 별개의 필드다.
+    var memoText: String = ""
+    var memoReadEnabled: Bool = false
     var createdAt: Date
 
     init(
@@ -40,6 +43,8 @@ final class Alarm {
         snoozeEnabled: Bool = false,
         snoozeMinutes: Int = SnoozeOption.defaultMinutes,
         snoozeLimit: Int = SnoozeOption.defaultLimit,
+        memoText: String = "",
+        memoReadEnabled: Bool = false,
         createdAt: Date = .now
     ) {
         self.id = id
@@ -55,6 +60,8 @@ final class Alarm {
         self.snoozeEnabled = snoozeEnabled
         self.snoozeMinutes = snoozeMinutes
         self.snoozeLimit = snoozeLimit
+        self.memoText = memoText
+        self.memoReadEnabled = memoReadEnabled
         self.createdAt = createdAt
     }
 
@@ -79,7 +86,8 @@ final class Alarm {
     var draft: AlarmDraft {
         AlarmDraft(title: title, hour: hour, minute: minute, weekdays: weekdays, mission: mission,
                    mediaID: mediaID, soundID: soundID, promptIDs: promptIDs, isEnabled: isEnabled,
-                   snoozeEnabled: snoozeEnabled, snoozeMinutes: snoozeMinutes, snoozeLimit: snoozeLimit)
+                   snoozeEnabled: snoozeEnabled, snoozeMinutes: snoozeMinutes, snoozeLimit: snoozeLimit,
+                   memoText: memoText, memoReadEnabled: memoReadEnabled)
     }
 
     /// 스케줄러에 넘기는 불변 스냅샷 (@Model 객체를 액터 경계 밖으로 넘기지 않기 위함)

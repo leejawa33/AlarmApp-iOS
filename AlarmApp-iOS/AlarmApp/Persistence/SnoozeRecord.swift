@@ -13,12 +13,18 @@ final class SnoozeRecord {
     var count: Int
     var fireDate: Date
     var createdAt: Date
+    /// 미룬 회차의 날짜(`DayKey`). 이번만 변경 메모를 재울림에서도 쓰기 위해 이어받는다.
+    var dayKey: Int = 0
+    /// 이 회차에서 메모를 이미 읽었는지(재울림에서 다시 읽지 않는다)
+    var memoRead: Bool = false
 
-    init(id: UUID = UUID(), alarmID: UUID, count: Int, fireDate: Date, createdAt: Date = .now) {
+    init(id: UUID = UUID(), alarmID: UUID, count: Int, fireDate: Date, createdAt: Date = .now, dayKey: Int = 0, memoRead: Bool = false) {
         self.id = id
         self.alarmID = alarmID
         self.count = count
         self.fireDate = fireDate
         self.createdAt = createdAt
+        self.dayKey = dayKey
+        self.memoRead = memoRead
     }
 }

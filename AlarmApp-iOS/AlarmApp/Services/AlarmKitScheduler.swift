@@ -97,7 +97,7 @@ final class AlarmKitScheduler: AlarmScheduling {
     }
 
     /// 일회성 예약. 퀵알람은 미션이 없으므로 시스템 기본 중지 버튼만 두고(소리도 시스템 기본 알람음),
-    /// 미루기 재울림은 일반 알람처럼 "미션하러 가기" 버튼을 둔다.
+    /// 미루기 재울림·이번만 변경 대체 회차는 일반 알람처럼 "미션하러 가기" 버튼을 둔다.
     private func configuration(for alarm: OneShotSnapshot) -> AlarmManager.AlarmConfiguration<RingMetadata> {
         switch alarm.kind {
         case .quick(let minutes):
@@ -115,7 +115,7 @@ final class AlarmKitScheduler: AlarmScheduling {
                 attributes: AlarmAttributes(presentation: AlarmPresentation(alert: alert), metadata: RingMetadata(), tintColor: Theme.cta),
                 sound: .default
             )
-        case .snooze(let alarmTitle, let soundID):
+        case .snooze(let alarmTitle, let soundID), .occurrence(let alarmTitle, let soundID):
             let title = LocalizedStringResource(stringLiteral: alarmTitle)
             let openApp = AlarmButton(text: LocalizedStringResource(stringLiteral: label("alarm_open_app")),
                                       textColor: .white, systemImageName: "figure.run")

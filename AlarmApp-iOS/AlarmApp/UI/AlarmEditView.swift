@@ -19,6 +19,7 @@ struct AlarmEditView: View {
     @State private var isSaving = false
     /// 권한이 없어 예약에 실패했을 때 띄우는 안내 (알람은 저장된 상태)
     @State private var showPermissionGuide = false
+    @State private var speaker = MemoSpeaker()
     @State private var showPromptPicker = false
     @State private var prompts: TranscriptionPrompts?
 
@@ -39,14 +40,18 @@ struct AlarmEditView: View {
                 missionBlock
                 mediaBlock
                 soundBlock
+                memoBlock
                 snoozeBlock
+                if let alarm { ScheduleBlock(alarm: alarm) }
                 if alarm != nil { deleteButton }
+                Color.clear.frame(height: 1).id("bottom")
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
             .padding(.bottom, 16)
         }
         .scrollDismissesKeyboard(.interactively)
+        .defaultScrollAnchor(debugScrollAnchor)
         .background(Theme.bg.ignoresSafeArea())
         .safeAreaInset(edge: .bottom) { actions }
         .navigationTitle(strings[alarm == nil ? "edit_title_new" : "edit_title_edit"])
@@ -200,6 +205,74 @@ struct AlarmEditView: View {
             }
         }
     }
+
+    /// 메모 읽어주기: 이 토글이 기능 스위치다. 켰을 때만 메모를 입력하고 음성 언어를 고른다.
+    private var memoBlock: some View {
+        Block(label: "") {
+            HStack(spacing: 8) {
+                Text(strings["edit_memo"])
+                    .font(Theme.rounded(15, weight: .bold))
+                    .foregroundStyle(Theme.text)
+                Text("👑 \(strings["paid_soon"])")
+                    .font(Theme.rounded(10, weight: .heavy))
+                    .foregroundStyle(Theme.sunDeep)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(Theme.sun.opacity(0.2), in: Capsule())
+                Spacer()
+                Toggle("", isOn: $draft.memoReadEnabled)
+                    .labelsHidden()
+                    .tint(Theme.sun)
+                    .accessibilityLabel(strings["edit_memo"])
+            }
+            if draft.memoReadEnabled {
+                TextField(strings["edit_memo_placeholder"], text: $draft.memoText, axis: .vertical)
+                    .lineLimit(2...4)
+                    .font(Theme.rounded(15, weight: .semibold))
+                    .foregroundStyle(Theme.text)
+                    .padding(10)
+                    .background(Theme.chipOff, in: RoundedRectangle(cornerRadius: 10))
+                    .onChange(of: draft.memoText) { _, text in
+                        if text.count > AlarmService.maxMemoLength { draft.memoText = String(text.prefix(AlarmService.maxMemoLength)) }
+                    }
+                Text("\(draft.memoText.count)/\(AlarmService.maxMemoLength)")
+                    .font(Theme.rounded(11, weight: .semibold))
+                    .foregroundStyle(Theme.textMuted)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                if !memoIsEmpty {
+                    Button {
+                        if speaker.isSpeaking { speaker.stop() } else {
+                            speaker.speak(draft.memoText, language: strings.language)
+                        }
+                    } label: {
+                        Label(strings[speaker.isSpeaking ? "edit_memo_listen_stop" : "edit_memo_listen"],
+                              systemImage: speaker.isSpeaking ? "stop.fill" : "speaker.wave.2.fill")
+                            .font(Theme.rounded(14, weight: .heavy))
+                            .frame(maxWidth: .infinity, minHeight: 40)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Theme.text)
+                    .background(Theme.chipOn, in: RoundedRectangle(cornerRadius: 12))
+                }
+            }
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: draft.memoReadEnabled)
+        .onChange(of: draft.memoReadEnabled) { _, on in if !on { speaker.stop() } }
+        .onDisappear { speaker.stop() }
+    }
+
+    private var memoIsEmpty: Bool { draft.memoText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
+    /// DEBUG `-demoScrollBottom`: 스크린샷용으로 아래쪽부터 보여 준다.
+    private var debugScrollAnchor: UnitPoint? {
+        #if DEBUG
+        if let value = DebugLaunch.scrollAnchor { return UnitPoint(x: 0.5, y: value) }
+        return DebugLaunch.scrollBottom ? .bottom : .top
+        #else
+        return .top
+        #endif
+    }
+
 
     private var snoozeBlock: some View {
         Block(label: strings["edit_snooze"]) {

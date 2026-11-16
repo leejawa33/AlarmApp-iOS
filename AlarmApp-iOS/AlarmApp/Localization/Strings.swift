@@ -96,6 +96,9 @@ final class Strings {
         case AlarmValidationError.noWeekday: return self["edit_weekday_required"]
         case AlarmValidationError.limitReached: return self["main_max_alarms"]
         case AlarmValidationError.snoozeUnavailable: return self["snooze_unavailable"]
+        case AlarmValidationError.exceptionUnavailable: return self["error_exception_unavailable"]
+        case AlarmValidationError.invalidExceptionTime: return self["error_exception_time"]
+        case AlarmValidationError.memoTooLong(let max): return format("error_memo_too_long", ["max": max])
         case AlarmValidationError.quickLimitReached(let max):
             return format("quick_limit", ["max": max])
         case AlarmServiceError.schedulingFailed(let underlying as AlarmSchedulerError) where underlying == .notAuthorized:

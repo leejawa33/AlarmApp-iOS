@@ -19,6 +19,11 @@ final class RingSoundPlayer {
         player?.play()
     }
 
+    /// 메모를 읽는 동안 알람 소리를 줄이는 데 쓴다(0...1).
+    func setVolume(_ volume: Float) {
+        player?.volume = volume
+    }
+
     func stop() {
         guard player != nil else { return }
         player?.stop()

@@ -27,6 +27,9 @@ struct RingView: View {
     @State private var sound = RingSoundPlayer()
     @State private var pulse = false
     @State private var isSnoozing = false
+    @State private var speaker = MemoSpeaker()
+    /// 이 화면에서 메모를 읽기 시작했는지(미루기 재울림에서 다시 읽지 않도록 기록에 넘긴다)
+    @State private var memoSpoken = false
     @State private var snoozeError: String?
 
     var body: some View {
@@ -78,9 +81,10 @@ struct RingView: View {
                         .background(.white.opacity(0.8), in: Capsule())
                         .padding(.top, 8)
                 }
+                if !info.memo.text.isEmpty { memoCard }
                 Spacer()
                 VStack(spacing: 10) {
-                    Button(strings["mission_start"]) { phase = .mission }
+                    Button(strings["mission_start"]) { startMission() }
                         .buttonStyle(CTAButtonStyle(height: 56))
                         .scaleEffect(pulse ? 1.03 : 1)
                     if let snooze = info.snooze, snooze.canSnooze { snoozeButton(snooze) }
@@ -91,6 +95,24 @@ struct RingView: View {
             .padding(.bottom, 12)
         }
         .transition(.opacity)
+    }
+
+    /// 오늘의 메모. 글자는 항상 보이고, 읽는 중이면 표시한다. (음성이 실패해도 텍스트로 확인할 수 있다)
+    private var memoCard: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("📝 \(strings["ring_memo_title"])" + (speaker.isSpeaking ? " · 🔊 \(strings["ring_memo_reading"])" : ""))
+                .font(Theme.rounded(12, weight: .heavy))
+                .foregroundStyle(Theme.textMuted)
+            Text(info.memo.text)
+                .font(Theme.rounded(15, weight: .bold))
+                .foregroundStyle(Theme.text)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(.white.opacity(0.88), in: RoundedRectangle(cornerRadius: 14))
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
     }
 
     /// 미루기 버튼: 소리를 멈추고 N분 뒤 다시 울리게 한다. 끄는 것이 아니다.
@@ -164,9 +186,24 @@ struct RingView: View {
         // 맥박 애니메이션은 pulse 값에만 걸어, 버튼이 나중에 추가돼도 레이아웃이 같이 흔들리지 않게 한다.
         withAnimation(.easeInOut(duration: 1).repeatForever(autoreverses: true)) { pulse = true }
         updateSound()
+        speaker.onSpeakingChange = { speaking in sound.setVolume(speaking ? 0.3 : 1) } // 말소리가 알람 소리에 묻히지 않게
+        speakMemoIfNeeded()
+    }
+
+    /// 실제 알람이 울려 이 화면에 들어오면 회차당 한 번 메모를 읽는다. 미리보기·미루기 재울림에서는 읽지 않는다.
+    private func speakMemoIfNeeded() {
+        guard !isPreview, !memoSpoken, !info.memoAlreadyRead, info.memo.shouldRead else { return }
+        memoSpoken = true
+        speaker.speak(info.memo.text, language: strings.language)
+    }
+
+    private func startMission() {
+        speaker.stop()
+        phase = .mission
     }
 
     private func finish() {
+        speaker.stop()
         sound.stop()
         UIApplication.shared.isIdleTimerDisabled = false
     }
@@ -188,7 +225,8 @@ struct RingView: View {
         Task {
             defer { isSnoozing = false }
             do {
-                try await service.snooze(ringID: id)
+                speaker.stop()
+                try await service.snooze(ringID: id, memoRead: memoSpoken || info.memoAlreadyRead)
                 sound.stop()
                 ringing.clear() // 루트의 fullScreenCover가 닫힌다
             } catch {
@@ -200,6 +238,7 @@ struct RingView: View {
     private func complete() {
         guard phase != .complete else { return }
         phase = .complete
+        speaker.stop()
         sound.stop()
         Task {
             if let id = liveAlarmID { await service.completeMission(alarmID: id) }
@@ -231,12 +270,18 @@ struct RingInfo {
     var promptIDs: [String] = []
     /// 미루기를 켠 알람이면 값이 있다
     var snooze: SnoozeInfo?
+    /// 이 회차에 보여 주고 읽을 메모(이번만 변경 반영)
+    var memo = EffectiveMemo(text: "", shouldRead: false)
+    /// 같은 회차의 이전 울림(미루기 전)에서 이미 읽었는지
+    var memoAlreadyRead = false
 
     static let empty = RingInfo(title: "", mission: .shake, mediaURL: nil, soundURL: nil, shakeCount: 10, prompts: nil)
 
     static func resolve(mode: RingMode, catalog: AssetCatalog, context: ModelContext) -> RingInfo {
         var title = "", mission = MissionType.shake, promptIDs: [String] = []
         var snooze: SnoozeInfo?
+        var memo = EffectiveMemo(text: "", shouldRead: false)
+        var memoAlreadyRead = false
         var mediaID = catalog.defaultMedia?.id, soundID = catalog.defaultSound?.id
         switch mode {
         case .preview(let draft):
@@ -245,16 +290,26 @@ struct RingInfo {
             if draft.snoozeEnabled {
                 snooze = SnoozeInfo(minutes: draft.snoozeMinutes, limit: draft.snoozeLimit, used: 0)
             }
+            memo = EffectiveMemo.resolve(baseText: draft.memoText, baseRead: draft.memoReadEnabled, exception: nil)
         case .live(let id):
             // 알람이 삭제됐어도 미션은 해야 한다 → 못 찾으면 카탈로그 기본값 + 흔들기
             // id는 원래 알람이거나 미루기 재울림(`SnoozeRecord`)일 수 있다.
             var found = try? context.fetch(FetchDescriptor<Alarm>(predicate: #Predicate { $0.id == id })).first
             var used = 0
+            var dayKey = DayKey.key(for: .now)
             if found == nil,
                let record = try? context.fetch(FetchDescriptor<SnoozeRecord>(predicate: #Predicate { $0.id == id })).first {
                 let parentID = record.alarmID
                 found = try? context.fetch(FetchDescriptor<Alarm>(predicate: #Predicate { $0.id == parentID })).first
                 used = record.count
+                if record.dayKey != 0 { dayKey = record.dayKey }
+                memoAlreadyRead = record.memoRead
+            } else if found == nil,
+                      let record = try? context.fetch(FetchDescriptor<OccurrenceRecord>(predicate: #Predicate { $0.id == id })).first {
+                // 이번만 변경 때문에 일회성으로 대체된 회차
+                let parentID = record.alarmID
+                found = try? context.fetch(FetchDescriptor<Alarm>(predicate: #Predicate { $0.id == parentID })).first
+                dayKey = record.dayKey
             }
             if let alarm = found {
                 title = alarm.title; mission = alarm.mission; mediaID = alarm.mediaID; soundID = alarm.soundID
@@ -262,6 +317,10 @@ struct RingInfo {
                 if alarm.snoozeEnabled {
                     snooze = SnoozeInfo(minutes: alarm.snoozeMinutes, limit: alarm.snoozeLimit, used: used)
                 }
+                let alarmID = alarm.id
+                let exception = (try? context.fetch(FetchDescriptor<DayException>(
+                    predicate: #Predicate { $0.alarmID == alarmID && $0.dayKey == dayKey })))?.first?.value
+                memo = EffectiveMemo.resolve(baseText: alarm.memoText, baseRead: alarm.memoReadEnabled, exception: exception)
             }
         }
         let media = catalog.media.first { $0.id == mediaID } ?? catalog.defaultMedia
@@ -274,7 +333,9 @@ struct RingInfo {
             shakeCount: catalog.missions.first { $0.id == MissionType.shake.rawValue }?.defaultCount ?? 10,
             prompts: try? TranscriptionPrompts.load(from: catalog),
             promptIDs: promptIDs,
-            snooze: snooze
+            snooze: snooze,
+            memo: memo,
+            memoAlreadyRead: memoAlreadyRead
         )
     }
 }

@@ -43,6 +43,7 @@ struct MainView: View {
             case "new": editing = .new(service.makeDefaultDraft())
             case "quick": showQuickAlarm = true
             case "edit": if let first = alarms.first { editing = .existing(first) }
+            case "exception": if let first = alarms.first { DebugLaunch.pendingExceptionSheet = true; editing = .existing(first) }
             case "prompts": if let first = alarms.first { DebugLaunch.pendingPromptPicker = true; editing = .existing(first) }
             case "permissions": DebugLaunch.pendingPermissionsScreen = true; showSettings = true
             case "permissionGuide": showPermissionGuide = true
@@ -150,6 +151,12 @@ struct MainView: View {
             } else {
             // 밀어서 삭제(swipeActions)를 쓰려고 List를 쓰되, 시안의 카드 모양을 유지한다.
             List {
+                if let wake = service.nextWake(now: now) {
+                    NextWakeLine(wake: wake, now: now)
+                        .listRowInsets(EdgeInsets(top: 2, leading: 20, bottom: 2, trailing: 16))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
                 ForEach(pending) { quick in
                     QuickAlarmRowView(alarm: quick, now: now)
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {

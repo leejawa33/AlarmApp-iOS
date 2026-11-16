@@ -30,7 +30,7 @@ struct AlarmKitMappingTests {
 @MainActor
 struct AuthorizationTests {
     @Test func deniedPermissionKeepsDataAndShowsPermissionMessage() async throws {
-        let container = try ModelContainer(for: Alarm.self, QuickAlarm.self, SnoozeRecord.self, AppSettings.self,
+        let container = try ModelContainer(for: Alarm.self, QuickAlarm.self, SnoozeRecord.self, DayException.self, OccurrenceRecord.self, AppSettings.self,
                                            configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         let scheduler = InMemoryAlarmScheduler()
         scheduler.authorization = .denied
@@ -55,7 +55,7 @@ struct AuthorizationTests {
     }
 
     @Test func reconcileNeverPromptsWithoutAuthorization() async throws {
-        let container = try ModelContainer(for: Alarm.self, QuickAlarm.self, SnoozeRecord.self, AppSettings.self,
+        let container = try ModelContainer(for: Alarm.self, QuickAlarm.self, SnoozeRecord.self, DayException.self, OccurrenceRecord.self, AppSettings.self,
                                            configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         let scheduler = InMemoryAlarmScheduler()
         let service = AlarmService(context: container.mainContext, catalog: try AssetCatalog.load(), scheduler: scheduler)
@@ -71,7 +71,7 @@ struct AuthorizationTests {
 @MainActor
 struct PermissionButtonTests {
     @Test func grantingPermissionSchedulesSavedAlarms() async throws {
-        let container = try ModelContainer(for: Alarm.self, QuickAlarm.self, SnoozeRecord.self, AppSettings.self,
+        let container = try ModelContainer(for: Alarm.self, QuickAlarm.self, SnoozeRecord.self, DayException.self, OccurrenceRecord.self, AppSettings.self,
                                            configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         let scheduler = InMemoryAlarmScheduler()
         scheduler.authorization = .denied
@@ -87,7 +87,7 @@ struct PermissionButtonTests {
     }
 
     @Test func deleteRemovesAlarm() async throws {
-        let container = try ModelContainer(for: Alarm.self, QuickAlarm.self, SnoozeRecord.self, AppSettings.self,
+        let container = try ModelContainer(for: Alarm.self, QuickAlarm.self, SnoozeRecord.self, DayException.self, OccurrenceRecord.self, AppSettings.self,
                                            configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         let scheduler = InMemoryAlarmScheduler()
         let service = AlarmService(context: container.mainContext, catalog: try AssetCatalog.load(), scheduler: scheduler)
@@ -105,7 +105,7 @@ struct OpenSettingsTapTests {
     /// 주의: ModelContainer를 함께 돌려줘서 테스트가 끝날 때까지 살려 둔다.
     /// (컨테이너가 먼저 해제되면 그 context로 조회할 때 SwiftData가 크래시한다)
     private func makeService(_ auth: AlarmAuthorization) throws -> (ModelContainer, AlarmService, InMemoryAlarmScheduler) {
-        let container = try ModelContainer(for: Alarm.self, QuickAlarm.self, SnoozeRecord.self, AppSettings.self,
+        let container = try ModelContainer(for: Alarm.self, QuickAlarm.self, SnoozeRecord.self, DayException.self, OccurrenceRecord.self, AppSettings.self,
                                            configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         let scheduler = InMemoryAlarmScheduler()
         scheduler.authorization = auth

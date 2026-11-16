@@ -542,6 +542,9 @@
     .next-card .t { font-size: 32px; font-weight: 800; letter-spacing: -0.03em; margin: 2px 0; }
     .next-card .why { display:inline-block; margin-top: 4px; padding: 3px 9px; border-radius: 999px; background: rgba(255,255,255,.25); font-size: 11px; font-weight: 700; }
     .next-card .sub { font-size: 12px; margin-top: 8px; opacity: .95; }
+    /* 다음 알람: 카드 없이 한 줄 텍스트(알라미처럼 포커스를 뺏지 않게) */
+    .next-line { margin: 6px 20px 0; font-size: 15px; font-weight: 800; color: var(--text); }
+    .next-line small { font-weight: 600; color: var(--text-muted); }
     .fab-2 { position:absolute; left:16px; right:16px; bottom:22px; display:grid; grid-template-columns: 1fr 1.4fr; gap:8px; }
     .fab-2 button { height:50px; border:none; border-radius:16px; font-family:inherit; font-weight:800; font-size:14px; }
     .fab-2 .ghost { background:#fff; border:1px solid var(--line); color: var(--text); }
@@ -687,6 +690,7 @@
         <div class="screen-main">
           <div class="status"><span>9:41</span><span>▮▮▮ 🔋</span></div>
           <div class="brand"><strong>알람<span>천국</span></strong><div class="gear">⚙</div></div>
+          <div class="next-line">8시간 24분 후에 울려요</div>
           <div class="alarm-list">
             <div class="alarm-row">
               <div class="time">오전 6:30</div><div class="toggle on"></div>
@@ -924,18 +928,12 @@
   <div class="gallery">
     <!-- B1 메인 -->
     <div class="phone-wrap">
-      <div class="phone-label">14. 메인 · 다음 기상</div>
+      <div class="phone-label">14. 메인 · 다음 알람<small>한 줄 텍스트 · 이번만 변경이면 바뀐 시각 기준으로 계산</small></div>
       <div class="phone"><div class="notch"></div>
         <div class="screen-main">
           <div class="status"><span>9:41</span><span>▮▮▮ 🔋</span></div>
           <div class="brand"><strong>알람<span>천국</span></strong><div class="gear">⚙</div></div>
-          <div class="next-card">
-            <div class="k">다음 기상</div>
-            <div class="t">내일 오전 5:30</div>
-            <div>🐣 이른 출근</div>
-            <span class="why">이번만 변경</span>
-            <div class="sub">📝 출입증 챙기세요 · 흔들기 10회</div>
-          </div>
+          <div class="next-line">17시간 24분 후에 울려요</div>
           <div class="alarm-list" style="padding-top:12px">
             <div class="alarm-row">
               <div class="time">오전 7:00</div><div class="toggle on"></div>
@@ -950,17 +948,17 @@
 
     <!-- B2 편집 11절 항목 -->
     <div class="phone-wrap">
-      <div class="phone-label">15. 알람 편집 · 메모·미루기<small>시간·요일·미션 영역은 위쪽(생략)</small></div>
+      <div class="phone-label">15. 알람 편집 · 메모·미루기<small>메모 읽어주기를 켰을 때만 입력 · 시간·요일·미션 영역은 위쪽(생략)</small></div>
       <div class="phone"><div class="notch"></div>
         <div class="screen-edit">
           <div class="status"><span>9:41</span><span>▮▮▮ 🔋</span></div>
           <div class="nav"><span class="link">취소</span><span>알람 편집</span><span class="link">저장</span></div>
           <div class="edit-body">
             <div class="muted" style="text-align:center">⋮ 시간 · 요일 · 타이틀 · 미션 · 미디어 · 소리</div>
-            <div class="block"><label>메모 읽어주기 <span class="tag-pro">👑 유료 예정</span></label>
-              <div style="display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:14px;margin-bottom:8px"><span>실행 화면에서 읽기</span><div class="toggle on" style="grid-row:auto"></div></div>
+            <div class="block"><label style="display:flex;justify-content:space-between;align-items:center">
+                <span>메모 읽어주기 <span class="tag-pro">👑 유료 예정</span></span><div class="toggle on" style="grid-row:auto"></div></label>
               <div class="field" style="border-color:#eee7df;font-size:13px;min-height:0">오늘은 여섯 시 반에 출발해야 해요. 출입증 챙기세요</div>
-              <div class="chips" style="margin-top:8px"><span>🔊 들어보기</span><span>음성 언어: 한국어</span></div></div>
+              <div class="chips" style="margin-top:8px"><span>🔊 들어보기</span></div></div>
             <div class="block"><label>미루기</label>
               <div style="display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:14px;margin-bottom:8px"><span>미루기 사용</span><div class="toggle on" style="grid-row:auto"></div></div>
               <div class="row" style="padding:9px 12px;font-size:13px;margin-bottom:6px">간격 <span class="v">5분 ›</span></div>

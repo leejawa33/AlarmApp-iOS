@@ -16,6 +16,8 @@ nonisolated struct OneShotSnapshot: Sendable, Equatable {
         case quick(minutes: Int)
         /// 알람 미루기 재울림. 원래 알람과 같은 제목·소리로 울리고, "미션하러 가기" 버튼을 둔다.
         case snooze(title: String, soundID: String)
+        /// 이번만 변경 때문에 일회성으로 대체한 정규 회차(변경일 새 시각·이후 기본 시각 브리지). 일반 알람처럼 울린다.
+        case occurrence(title: String, soundID: String)
     }
 
     let id: UUID

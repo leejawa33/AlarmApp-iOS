@@ -18,7 +18,7 @@ struct AlarmAppApp: App {
         let catalog: AssetCatalog
         let language: AppLanguage
         do {
-            container = try ModelContainer(for: Alarm.self, QuickAlarm.self, SnoozeRecord.self, AppSettings.self)
+            container = try ModelContainer(for: Alarm.self, QuickAlarm.self, SnoozeRecord.self, DayException.self, OccurrenceRecord.self, AppSettings.self)
             catalog = try AssetCatalog.load()
             language = try AppSettings.current(in: container.mainContext).language
         } catch {
@@ -34,6 +34,7 @@ struct AlarmAppApp: App {
             ? InMemoryAlarmScheduler()
             : AlarmKitScheduler(catalog: catalog, label: { strings[$0] })
         #if DEBUG
+        if DebugLaunch.useMemoryScheduler { scheduler = InMemoryAlarmScheduler() }
         if let override = DebugLaunch.permissionOverride {
             scheduler = DebugPermissionScheduler(base: scheduler, alarm: override)
         }
