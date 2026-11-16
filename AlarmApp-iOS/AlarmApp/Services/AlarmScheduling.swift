@@ -9,11 +9,13 @@ nonisolated struct AlarmSnapshot: Sendable, Equatable {
     let soundID: String
 }
 
-/// 한 번만 울리는 예약(고정 시각). 퀵알람이 쓰고, 이후 미루기·이번만 변경 회차도 같은 경로를 쓴다.
+/// 한 번만 울리는 예약(고정 시각). 퀵알람(로컬 알림)·미루기 재울림(AlarmKit)이 쓰고, 이후 이번만 변경 회차도 같은 경로를 쓴다.
 nonisolated struct OneShotSnapshot: Sendable, Equatable {
     enum Kind: Sendable, Equatable {
-        /// 미션 없는 퀵알람. 시스템 알림에서 바로 끈다.
+        /// 미션 없는 퀵알람. 로컬 알림이라 기기의 무음·집중 모드·진동 설정을 따른다.
         case quick(minutes: Int)
+        /// 알람 미루기 재울림. 원래 알람과 같은 제목·소리로 울리고, "미션하러 가기" 버튼을 둔다.
+        case snooze(title: String, soundID: String)
     }
 
     let id: UUID
@@ -31,6 +33,8 @@ nonisolated enum AlarmSchedulerError: Error, Equatable {
     case notAuthorized
     /// OS 알람 개수 한도 초과
     case systemLimitReached
+    /// 알림 권한이 꺼져 있어 퀵알람(로컬 알림)을 예약할 수 없음. AlarmKit 알람 권한과는 별개다.
+    case notificationsNotAuthorized
 }
 
 /// OS 알람 스케줄러 경계. 실제 구현은 `AlarmKitScheduler`, 테스트·미리보기는 `InMemoryAlarmScheduler`.
@@ -38,6 +42,10 @@ protocol AlarmScheduling: AnyObject {
     var authorization: AlarmAuthorization { get }
     /// 아직 묻지 않았으면 시스템 권한 창을 띄운다.
     func requestAuthorization() async -> AlarmAuthorization
+    /// 알림 권한(퀵알람용). AlarmKit 알람 권한과 별개다.
+    func notificationAuthorization() async -> AlarmAuthorization
+    /// 아직 안 물었으면 시스템 알림 권한 창을 띄운다.
+    func requestNotificationAuthorization() async -> AlarmAuthorization
     /// 같은 id가 이미 있으면 교체한다(upsert). 단, 지금 울리는 중인 알람은 건드리지 않는다.
     func schedule(_ alarm: AlarmSnapshot) async throws
     /// 고정 시각에 한 번만 울리는 알람을 예약한다. 같은 id가 있으면 교체하고, 울리는 중이면 건드리지 않는다.
@@ -57,6 +65,9 @@ final class InMemoryAlarmScheduler: AlarmScheduling {
     /// 테스트용: stop이 호출된 알람 id
     private(set) var stopped: [UUID] = []
     var authorization: AlarmAuthorization = .authorized
+    /// 테스트용: 알림 권한 상태와, 권한 창에서 사용자가 고를 결과
+    var notification: AlarmAuthorization = .authorized
+    var notificationAfterRequest: AlarmAuthorization?
     /// 테스트용: 권한 창에서 사용자가 고를 결과 (nil이면 상태 그대로)
     var authorizationAfterRequest: AlarmAuthorization?
     /// 테스트용: 설정하면 다음 schedule/cancel 호출이 이 에러로 한 번 실패한다.
@@ -71,6 +82,13 @@ final class InMemoryAlarmScheduler: AlarmScheduling {
         return authorization
     }
 
+    func notificationAuthorization() async -> AlarmAuthorization { notification }
+
+    func requestNotificationAuthorization() async -> AlarmAuthorization {
+        if notification == .notDetermined, let result = notificationAfterRequest { notification = result }
+        return notification
+    }
+
     func schedule(_ alarm: AlarmSnapshot) async throws {
         try throwIfNeeded()
         guard authorization == .authorized else { throw AlarmSchedulerError.notAuthorized }
@@ -79,7 +97,12 @@ final class InMemoryAlarmScheduler: AlarmScheduling {
 
     func scheduleOnce(_ alarm: OneShotSnapshot) async throws {
         try throwIfNeeded()
-        guard authorization == .authorized else { throw AlarmSchedulerError.notAuthorized }
+        switch alarm.kind {
+        case .quick:
+            guard await requestNotificationAuthorization() == .authorized else { throw AlarmSchedulerError.notificationsNotAuthorized }
+        case .snooze:
+            guard authorization == .authorized else { throw AlarmSchedulerError.notAuthorized }
+        }
         scheduledOnce[alarm.id] = alarm
     }
 

@@ -41,7 +41,7 @@ struct ShakeCounterTests {
 @MainActor
 struct CompleteMissionTests {
     @Test func completingMissionStopsAlarmButKeepsSchedule() async throws {
-        let container = try ModelContainer(for: Alarm.self, QuickAlarm.self, AppSettings.self,
+        let container = try ModelContainer(for: Alarm.self, QuickAlarm.self, SnoozeRecord.self, AppSettings.self,
                                            configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         let scheduler = InMemoryAlarmScheduler()
         let service = AlarmService(context: container.mainContext, catalog: try AssetCatalog.load(), scheduler: scheduler)
@@ -55,7 +55,7 @@ struct CompleteMissionTests {
     }
 
     @Test func ringInfoFallsBackWhenAlarmDeleted() throws {
-        let container = try ModelContainer(for: Alarm.self, QuickAlarm.self, AppSettings.self,
+        let container = try ModelContainer(for: Alarm.self, QuickAlarm.self, SnoozeRecord.self, AppSettings.self,
                                            configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         let catalog = try AssetCatalog.load()
         let info = RingInfo.resolve(mode: .live(alarmID: UUID()), catalog: catalog, context: container.mainContext)
@@ -67,7 +67,7 @@ struct CompleteMissionTests {
     }
 
     @Test func ringInfoUsesAlarmSettings() async throws {
-        let container = try ModelContainer(for: Alarm.self, QuickAlarm.self, AppSettings.self,
+        let container = try ModelContainer(for: Alarm.self, QuickAlarm.self, SnoozeRecord.self, AppSettings.self,
                                            configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         let catalog = try AssetCatalog.load()
         let service = AlarmService(context: container.mainContext, catalog: catalog, scheduler: InMemoryAlarmScheduler())
@@ -122,7 +122,7 @@ struct PromptSelectionTests {
 @MainActor
 struct AlarmPromptPersistenceTests {
     @Test func savesAndUpdatesSelectedPrompts() async throws {
-        let container = try ModelContainer(for: Alarm.self, QuickAlarm.self, AppSettings.self,
+        let container = try ModelContainer(for: Alarm.self, QuickAlarm.self, SnoozeRecord.self, AppSettings.self,
                                            configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         let catalog = try AssetCatalog.load()
         let service = AlarmService(context: container.mainContext, catalog: catalog, scheduler: InMemoryAlarmScheduler())

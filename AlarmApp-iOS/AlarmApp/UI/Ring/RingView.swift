@@ -26,6 +26,8 @@ struct RingView: View {
     @State private var info = RingInfo.empty
     @State private var sound = RingSoundPlayer()
     @State private var pulse = false
+    @State private var isSnoozing = false
+    @State private var snoozeError: String?
 
     var body: some View {
         ZStack {
@@ -42,6 +44,9 @@ struct RingView: View {
         .onAppear(perform: start)
         .onDisappear(perform: finish)
         .onChange(of: systemIsAlerting) { updateSound() }
+        .alert(snoozeError ?? "", isPresented: .init(get: { snoozeError != nil }, set: { if !$0 { snoozeError = nil } })) {
+            Button(strings["common_ok"]) {}
+        }
     }
 
     // MARK: 실행 화면
@@ -74,16 +79,30 @@ struct RingView: View {
                         .padding(.top, 8)
                 }
                 Spacer()
-                Button(strings["mission_start"]) { phase = .mission }
-                    .buttonStyle(CTAButtonStyle(height: 56))
-                    .scaleEffect(pulse ? 1.03 : 1)
-                    .animation(.easeInOut(duration: 1).repeatForever(autoreverses: true), value: pulse)
-                    .padding(.horizontal, 20)
+                VStack(spacing: 10) {
+                    Button(strings["mission_start"]) { phase = .mission }
+                        .buttonStyle(CTAButtonStyle(height: 56))
+                        .scaleEffect(pulse ? 1.03 : 1)
+                    if let snooze = info.snooze, snooze.canSnooze { snoozeButton(snooze) }
+                }
+                .padding(.horizontal, 20)
             }
             .padding(.top, 48)
             .padding(.bottom, 12)
         }
         .transition(.opacity)
+    }
+
+    /// 미루기 버튼: 소리를 멈추고 N분 뒤 다시 울리게 한다. 끄는 것이 아니다.
+    private func snoozeButton(_ snooze: SnoozeInfo) -> some View {
+        let label = snooze.remaining.map { strings.format("ring_snooze_remaining", ["minutes": snooze.minutes, "count": $0]) }
+            ?? strings.format("ring_snooze", ["minutes": snooze.minutes])
+        return Button(label) { snoozeTapped() }
+            .font(Theme.rounded(16, weight: .bold))
+            .foregroundStyle(Theme.text)
+            .frame(maxWidth: .infinity, minHeight: 46)
+            .background(.white.opacity(0.85), in: RoundedRectangle(cornerRadius: 14))
+            .disabled(isSnoozing)
     }
 
     // MARK: 미션
@@ -142,7 +161,8 @@ struct RingView: View {
         }
         #endif
         UIApplication.shared.isIdleTimerDisabled = true // 울리는 동안 화면이 꺼지지 않게
-        pulse = true
+        // 맥박 애니메이션은 pulse 값에만 걸어, 버튼이 나중에 추가돼도 레이아웃이 같이 흔들리지 않게 한다.
+        withAnimation(.easeInOut(duration: 1).repeatForever(autoreverses: true)) { pulse = true }
         updateSound()
     }
 
@@ -158,6 +178,23 @@ struct RingView: View {
             return
         }
         sound.play(url: url)
+    }
+
+    /// 미리보기에서는 예약 없이 닫기만 한다. 실제 알람은 예약이 성공해야 소리를 멈추고 닫는다.
+    private func snoozeTapped() {
+        if isPreview { dismiss(); return }
+        guard let id = liveAlarmID, !isSnoozing else { return }
+        isSnoozing = true
+        Task {
+            defer { isSnoozing = false }
+            do {
+                try await service.snooze(ringID: id)
+                sound.stop()
+                ringing.clear() // 루트의 fullScreenCover가 닫힌다
+            } catch {
+                snoozeError = strings.message(for: error)
+            }
+        }
     }
 
     private func complete() {
@@ -192,22 +229,39 @@ struct RingInfo {
     var prompts: TranscriptionPrompts?
     /// 알람이 고른 따라쓰기 문장 (빈 배열 = 전체)
     var promptIDs: [String] = []
+    /// 미루기를 켠 알람이면 값이 있다
+    var snooze: SnoozeInfo?
 
     static let empty = RingInfo(title: "", mission: .shake, mediaURL: nil, soundURL: nil, shakeCount: 10, prompts: nil)
 
     static func resolve(mode: RingMode, catalog: AssetCatalog, context: ModelContext) -> RingInfo {
         var title = "", mission = MissionType.shake, promptIDs: [String] = []
+        var snooze: SnoozeInfo?
         var mediaID = catalog.defaultMedia?.id, soundID = catalog.defaultSound?.id
         switch mode {
         case .preview(let draft):
             title = draft.title; mission = draft.mission; mediaID = draft.mediaID; soundID = draft.soundID
             promptIDs = draft.promptIDs
+            if draft.snoozeEnabled {
+                snooze = SnoozeInfo(minutes: draft.snoozeMinutes, limit: draft.snoozeLimit, used: 0)
+            }
         case .live(let id):
             // 알람이 삭제됐어도 미션은 해야 한다 → 못 찾으면 카탈로그 기본값 + 흔들기
-            let found = try? context.fetch(FetchDescriptor<Alarm>(predicate: #Predicate { $0.id == id })).first
+            // id는 원래 알람이거나 미루기 재울림(`SnoozeRecord`)일 수 있다.
+            var found = try? context.fetch(FetchDescriptor<Alarm>(predicate: #Predicate { $0.id == id })).first
+            var used = 0
+            if found == nil,
+               let record = try? context.fetch(FetchDescriptor<SnoozeRecord>(predicate: #Predicate { $0.id == id })).first {
+                let parentID = record.alarmID
+                found = try? context.fetch(FetchDescriptor<Alarm>(predicate: #Predicate { $0.id == parentID })).first
+                used = record.count
+            }
             if let alarm = found {
                 title = alarm.title; mission = alarm.mission; mediaID = alarm.mediaID; soundID = alarm.soundID
                 promptIDs = alarm.promptIDs
+                if alarm.snoozeEnabled {
+                    snooze = SnoozeInfo(minutes: alarm.snoozeMinutes, limit: alarm.snoozeLimit, used: used)
+                }
             }
         }
         let media = catalog.media.first { $0.id == mediaID } ?? catalog.defaultMedia
@@ -219,7 +273,21 @@ struct RingInfo {
             soundURL: sound.flatMap { AssetCatalog.resourceURL(for: $0.file) },
             shakeCount: catalog.missions.first { $0.id == MissionType.shake.rawValue }?.defaultCount ?? 10,
             prompts: try? TranscriptionPrompts.load(from: catalog),
-            promptIDs: promptIDs
+            promptIDs: promptIDs,
+            snooze: snooze
         )
     }
+}
+
+/// 실행 화면의 미루기 버튼에 필요한 값
+struct SnoozeInfo: Equatable {
+    let minutes: Int
+    /// 0 = 무제한
+    let limit: Int
+    /// 이번 회차에서 이미 미룬 횟수
+    let used: Int
+
+    var canSnooze: Bool { SnoozeOption.canSnooze(limit: limit, used: used) }
+    /// 무제한이면 nil
+    var remaining: Int? { SnoozeOption.remaining(limit: limit, used: used) }
 }

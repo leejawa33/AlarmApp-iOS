@@ -3,14 +3,17 @@ import UIKit
 
 /// 시안의 흰 카드 블록 (라벨 + 내용)
 struct Block<Content: View>: View {
+    /// 비어 있으면 라벨 줄을 그리지 않는다.
     let label: String
     @ViewBuilder var content: Content
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(label)
-                .font(Theme.rounded(12, weight: .bold))
-                .foregroundStyle(Theme.textMuted)
+            if !label.isEmpty {
+                Text(label)
+                    .font(Theme.rounded(12, weight: .bold))
+                    .foregroundStyle(Theme.textMuted)
+            }
             content
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -92,12 +95,13 @@ struct Wordmark: View {
 struct OpenSettingsButton<Label: View>: View {
     @Environment(AlarmService.self) private var service
     @Environment(\.openURL) private var openURL
+    var kind: PermissionKind = .alarm
     @ViewBuilder var label: Label
 
     var body: some View {
         Button {
             Task {
-                if await service.handleOpenSettingsTap(),
+                if await service.handleOpenSettingsTap(kind),
                    let url = URL(string: UIApplication.openSettingsURLString) {
                     openURL(url)
                 }

@@ -34,6 +34,8 @@ final class RingingAlarmCenter {
     /// 퀵알람 id. 미션이 없어 실행 화면을 열지 않고 시스템 알림에서 바로 끈다.
     private(set) var quickAlarmIDs: Set<UUID> = []
     @ObservationIgnored private var monitorTask: Task<Void, Never>?
+    /// AlarmKit 알람 목록이 바뀔 때마다 불린다(퀵알람이 끝나 목록에서 사라졌는지 서비스가 확인하는 용도).
+    @ObservationIgnored var onAlarmsChanged: (() -> Void)?
 
     func markRinging(_ id: UUID) {
         guard !quickAlarmIDs.contains(id) else { return }
@@ -61,6 +63,7 @@ final class RingingAlarmCenter {
     }
 
     private func update(_ alarms: [AlarmKit.Alarm]) {
+        defer { onAlarmsChanged?() }
         alertingIDs = Set(alarms.filter { $0.state == .alerting }.map(\.id)).subtracting(quickAlarmIDs)
         // 새로 울리기 시작한 알람이 있으면 실행 화면을 연다. (울림이 멈춰도 미션 전까지는 닫지 않는다)
         if ringingAlarmID == nil, let id = alertingIDs.first {

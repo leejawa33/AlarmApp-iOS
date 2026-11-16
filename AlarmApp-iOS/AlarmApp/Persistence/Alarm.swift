@@ -20,6 +20,10 @@ final class Alarm {
     var soundID: String
     /// 따라쓰기 미션 문장 id. 빈 배열 = 전체 (`PromptSelection`)
     var promptIDs: [String] = []
+    /// 알람 미루기 (기획서 11.6). 기본은 끔·5분·3회. `snoozeLimit` 0 = 무제한
+    var snoozeEnabled: Bool = false
+    var snoozeMinutes: Int = SnoozeOption.defaultMinutes
+    var snoozeLimit: Int = SnoozeOption.defaultLimit
     var createdAt: Date
 
     init(
@@ -33,6 +37,9 @@ final class Alarm {
         mediaID: String,
         soundID: String,
         promptIDs: [String] = [],
+        snoozeEnabled: Bool = false,
+        snoozeMinutes: Int = SnoozeOption.defaultMinutes,
+        snoozeLimit: Int = SnoozeOption.defaultLimit,
         createdAt: Date = .now
     ) {
         self.id = id
@@ -45,6 +52,9 @@ final class Alarm {
         self.mediaID = mediaID
         self.soundID = soundID
         self.promptIDs = promptIDs
+        self.snoozeEnabled = snoozeEnabled
+        self.snoozeMinutes = snoozeMinutes
+        self.snoozeLimit = snoozeLimit
         self.createdAt = createdAt
     }
 
@@ -68,7 +78,8 @@ final class Alarm {
     /// 편집 화면 초기값
     var draft: AlarmDraft {
         AlarmDraft(title: title, hour: hour, minute: minute, weekdays: weekdays, mission: mission,
-                   mediaID: mediaID, soundID: soundID, promptIDs: promptIDs, isEnabled: isEnabled)
+                   mediaID: mediaID, soundID: soundID, promptIDs: promptIDs, isEnabled: isEnabled,
+                   snoozeEnabled: snoozeEnabled, snoozeMinutes: snoozeMinutes, snoozeLimit: snoozeLimit)
     }
 
     /// 스케줄러에 넘기는 불변 스냅샷 (@Model 객체를 액터 경계 밖으로 넘기지 않기 위함)

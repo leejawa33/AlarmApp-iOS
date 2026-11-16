@@ -2,7 +2,7 @@ import SwiftData
 import SwiftUI
 import UIKit
 
-/// 설정: 언어(한 줄 → 언어 선택 화면) · 권한 안내(권한이 꺼져 있거나 미결정일 때만)
+/// 설정: 언어(한 줄 → 언어 선택 화면) · 권한(한 줄 → 권한 화면, 허용 전 항목이 있으면 "확인 필요")
 struct SettingsView: View {
     @Environment(\.modelContext) private var context
     @Environment(AlarmService.self) private var service
@@ -11,6 +11,12 @@ struct SettingsView: View {
 
     @State private var language: AppLanguage = .system
     @State private var showLanguage = false
+    @State private var showPermissions = false
+
+    /// 허용되지 않은 권한이 하나라도 있으면 권한 줄에 "확인 필요"를 보여 준다.
+    private var needsAttention: Bool {
+        service.authorization != .authorized || service.notificationAuthorization != .authorized
+    }
 
     var body: some View {
         ScrollView {
@@ -35,27 +41,29 @@ struct SettingsView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                }
-                // 권한이 켜져 있으면 안내가 필요 없으므로 숨긴다.
-                if service.authorization != .authorized {
-                Block(label: strings["settings_permissions"]) {
-                    Text(strings["settings_permission_alarm_body"])
-                        .font(Theme.rounded(15, weight: .semibold))
-                        .foregroundStyle(Theme.text)
-                        .fixedSize(horizontal: false, vertical: true)
-                    if service.authorization == .denied {
-                        Label(strings["permission_alarm_denied"], systemImage: "bell.slash.fill")
-                            .font(Theme.rounded(13, weight: .bold))
-                            .foregroundStyle(Theme.cta)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Text(strings["permission_settings_path"])
-                            .font(Theme.rounded(12, weight: .semibold))
-                            .foregroundStyle(Theme.textMuted)
-                            .fixedSize(horizontal: false, vertical: true)
+                    Divider()
+                    Button {
+                        showPermissions = true
+                    } label: {
+                        HStack {
+                            Text(strings["settings_permissions"])
+                                .font(Theme.rounded(16, weight: .bold))
+                                .foregroundStyle(Theme.text)
+                            Spacer()
+                            if needsAttention {
+                                Circle().fill(Theme.cta).frame(width: 8, height: 8).accessibilityHidden(true)
+                                Text(strings["settings_permissions_attention"])
+                                    .font(Theme.rounded(15, weight: .semibold))
+                                    .foregroundStyle(Theme.textMuted)
+                            }
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(Theme.textMuted)
+                        }
+                        .padding(.vertical, 6)
+                        .contentShape(Rectangle())
                     }
-                    OpenSettingsButton { Text(strings["permission_open_settings"]) }
-                        .buttonStyle(GhostButtonStyle())
-                }
+                    .buttonStyle(.plain)
                 }
             }
             .padding(16)
@@ -65,17 +73,110 @@ struct SettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
         .navigationDestination(isPresented: $showLanguage) { LanguageSettingsView() }
+        .navigationDestination(isPresented: $showPermissions) { PermissionsView() }
+        .task { await service.refreshNotificationAuthorization() }
         .onAppear {
             service.refreshAuthorization()
             // 언어 화면에서 돌아올 때마다 현재 값을 다시 읽는다.
             language = (try? AppSettings.current(in: context))?.language ?? .system
             #if DEBUG
+            if DebugLaunch.pendingPermissionsScreen {
+                DebugLaunch.pendingPermissionsScreen = false
+                showPermissions = true
+            }
             if DebugLaunch.pendingLanguageScreen {
                 DebugLaunch.pendingLanguageScreen = false
                 showLanguage = true
             }
             #endif
         }
+    }
+}
+
+/// 권한 화면: 알람·알림 두 줄을 항상 상태 배지와 함께 보여 준다. 허용 전 줄에만 버튼이 있다.
+struct PermissionsView: View {
+    @Environment(AlarmService.self) private var service
+    @Environment(Strings.self) private var strings
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 12) {
+                Block(label: "") {
+                    PermissionRow(kind: .alarm)
+                    Divider()
+                    PermissionRow(kind: .notification)
+                }
+                Text(strings["permission_settings_path"])
+                    .font(Theme.rounded(12, weight: .semibold))
+                    .foregroundStyle(Theme.textMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 6)
+            }
+            .padding(16)
+        }
+        .background(Theme.bg.ignoresSafeArea())
+        .navigationTitle(strings["settings_permissions"])
+        .navigationBarTitleDisplayMode(.inline)
+        .task { await service.refreshNotificationAuthorization() }
+        .onAppear { service.refreshAuthorization() }
+    }
+}
+
+/// 권한 한 줄: 아이콘 · 이름·설명 · 상태 배지 · (허용이 아니면) 설정 열기/허용하기
+struct PermissionRow: View {
+    let kind: PermissionKind
+    @Environment(AlarmService.self) private var service
+    @Environment(Strings.self) private var strings
+
+    private var prefix: String { kind == .alarm ? "settings_permission_alarm" : "settings_permission_notification" }
+
+    var body: some View {
+        let status = service.authorization(for: kind)
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: kind == .alarm ? "alarm.fill" : "bell.fill")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 34, height: 34)
+                .background(kind == .alarm ? Theme.sunDeep : Theme.cta, in: RoundedRectangle(cornerRadius: 9))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(strings[prefix])
+                    .font(Theme.rounded(16, weight: .bold))
+                    .foregroundStyle(Theme.text)
+                Text(strings["\(prefix)_desc"])
+                    .font(Theme.rounded(12, weight: .semibold))
+                    .foregroundStyle(Theme.textMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 8)
+            VStack(alignment: .trailing, spacing: 6) {
+                badge(status)
+                if status != .authorized {
+                    OpenSettingsButton(kind: kind) {
+                        Text(strings[status == .notDetermined ? "permission_allow" : "permission_open_settings"])
+                    }
+                    .font(Theme.rounded(13, weight: .heavy))
+                    .foregroundStyle(Theme.cta)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func badge(_ status: AlarmAuthorization) -> some View {
+        let (key, color): (String, Color) = switch status {
+        case .authorized: ("permission_status_authorized", Color(hex: 0x2E9E5B))
+        case .denied: ("permission_status_denied", Theme.cta)
+        case .notDetermined: ("permission_status_not_determined", Theme.textMuted)
+        }
+        return Text(strings[key])
+            .font(Theme.rounded(12, weight: .heavy))
+            .foregroundStyle(color)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(color.opacity(0.12), in: Capsule())
     }
 }
 
@@ -157,6 +258,10 @@ extension AppLanguage {
 #if DEBUG
 #Preview {
     NavigationStack { SettingsView() }.previewEnvironment()
+}
+
+#Preview("권한") {
+    NavigationStack { PermissionsView() }.previewEnvironment()
 }
 
 #Preview("언어 선택") {

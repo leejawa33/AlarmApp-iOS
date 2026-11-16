@@ -14,6 +14,7 @@ struct MainView: View {
     @State private var editing: EditTarget?
     @State private var showQuickAlarm = false
     @State private var errorMessage: String?
+    @State private var permissionGuide: PermissionKind?
     #if DEBUG
     @State private var showSettings = false
     @State private var showPreview = false
@@ -43,6 +44,9 @@ struct MainView: View {
             case "quick": showQuickAlarm = true
             case "edit": if let first = alarms.first { editing = .existing(first) }
             case "prompts": if let first = alarms.first { DebugLaunch.pendingPromptPicker = true; editing = .existing(first) }
+            case "permissions": DebugLaunch.pendingPermissionsScreen = true; showSettings = true
+            case "permissionGuide": permissionGuide = .alarm
+            case "permissionGuideNotification": permissionGuide = .notification
             case "settings": showSettings = true
             case "language": DebugLaunch.pendingLanguageScreen = true; showSettings = true
             case "preview": showPreview = true
@@ -70,6 +74,7 @@ struct MainView: View {
         .alert(errorMessage ?? "", isPresented: .init(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
             Button(strings["common_ok"]) {}
         }
+        .fullScreenCover(item: $permissionGuide) { PermissionGuideView(kind: $0) }
     }
 
     private var background: some View {
@@ -128,17 +133,26 @@ struct MainView: View {
         .padding(.bottom, 4)
     }
 
+    @ViewBuilder
     private var list: some View {
-        // 남은 시간 표시를 위해 1분마다 다시 그린다.
-        TimelineView(.everyMinute) { context in
-            let pending = pendingQuick(at: context.date)
+        // 남은 시간 표시를 위해 1분마다 다시 그린다. 대기 중인 퀵알람이 있으면 울린 즉시 카드가 사라지도록 1초마다 그린다.
+        if pendingQuick(at: .now).isEmpty {
+            TimelineView(.everyMinute) { context in listContent(now: context.date) }
+        } else {
+            TimelineView(.periodic(from: .now, by: 1)) { context in listContent(now: context.date) }
+        }
+    }
+
+    @ViewBuilder
+    private func listContent(now: Date) -> some View {
+            let pending = pendingQuick(at: now)
             if alarms.isEmpty && pending.isEmpty {
                 emptyState
             } else {
             // 밀어서 삭제(swipeActions)를 쓰려고 List를 쓰되, 시안의 카드 모양을 유지한다.
             List {
                 ForEach(pending) { quick in
-                    QuickAlarmRowView(alarm: quick, now: context.date)
+                    QuickAlarmRowView(alarm: quick, now: now)
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                             Button(strings["quick_cancel"], systemImage: "xmark", role: .destructive) { cancelQuick(quick) }
                         }
@@ -150,7 +164,7 @@ struct MainView: View {
                         .listRowSeparator(.hidden)
                 }
                 ForEach(alarms) { alarm in
-                    AlarmRowView(alarm: alarm, now: context.date) { enabled in
+                    AlarmRowView(alarm: alarm, now: now) { enabled in
                         toggle(alarm, enabled)
                     }
                     .contentShape(Rectangle())
@@ -171,7 +185,6 @@ struct MainView: View {
             .contentMargins(.top, 4, for: .scrollContent)
             .contentMargins(.bottom, 120, for: .scrollContent)
             }
-        }
     }
 
     private var emptyState: some View {
@@ -246,7 +259,9 @@ struct MainView: View {
             do {
                 try await service.setEnabled(alarm, enabled)
             } catch {
-                errorMessage = strings.message(for: error)
+                if let kind = AlarmService.permissionIssue(in: error) { permissionGuide = kind } else {
+                    errorMessage = strings.message(for: error)
+                }
             }
         }
     }

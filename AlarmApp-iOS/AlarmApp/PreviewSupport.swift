@@ -7,7 +7,7 @@ import SwiftUI
 enum PreviewSupport {
     static func make(sample: Bool) -> (ModelContainer, AlarmService, Strings) {
         let container = try! ModelContainer(
-            for: Alarm.self, QuickAlarm.self, AppSettings.self,
+            for: Alarm.self, QuickAlarm.self, SnoozeRecord.self, AppSettings.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
         let catalog = try! AssetCatalog.load()
@@ -16,7 +16,7 @@ enum PreviewSupport {
             let media = catalog.defaultMedia!.id, sound = catalog.defaultSound!.id
             let samples = [
                 Alarm(title: "🐣 일찍 일어나기", hour: 6, minute: 30, weekdays: [.monday, .tuesday, .wednesday, .thursday, .friday],
-                      mission: .shake, mediaID: media, soundID: sound),
+                      mission: .shake, mediaID: media, soundID: sound, snoozeEnabled: true),
                 Alarm(title: "운동 가기", hour: 7, minute: 0, weekdays: [.saturday, .sunday],
                       mission: .transcription, mediaID: media, soundID: sound),
                 Alarm(title: "수면 준비", hour: 22, minute: 0, weekdays: Set(Weekday.allCases), isEnabled: false,

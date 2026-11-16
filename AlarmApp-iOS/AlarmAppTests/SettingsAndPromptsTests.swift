@@ -47,7 +47,7 @@ struct AppLanguageTests {
 
     @MainActor
     @Test func settingsIsSingleRow() throws {
-        let container = try ModelContainer(for: Alarm.self, QuickAlarm.self, AppSettings.self,
+        let container = try ModelContainer(for: Alarm.self, QuickAlarm.self, SnoozeRecord.self, AppSettings.self,
                                            configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         let first = try AppSettings.current(in: container.mainContext)
         first.language = .en

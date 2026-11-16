@@ -17,6 +17,8 @@ struct AlarmEditView: View {
     @State private var confirmDelete = false
     @State private var showPreview = false
     @State private var isSaving = false
+    /// 권한이 없어 예약에 실패했을 때 띄우는 안내 (알람은 저장된 상태)
+    @State private var permissionGuide: PermissionKind?
     @State private var showPromptPicker = false
     @State private var prompts: TranscriptionPrompts?
 
@@ -37,6 +39,7 @@ struct AlarmEditView: View {
                 missionBlock
                 mediaBlock
                 soundBlock
+                snoozeBlock
                 if alarm != nil { deleteButton }
             }
             .padding(.horizontal, 16)
@@ -66,6 +69,7 @@ struct AlarmEditView: View {
         .alert(errorMessage ?? "", isPresented: .init(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
             Button(strings["common_ok"]) { if dismissAfterError { dismiss() } }
         }
+        .fullScreenCover(item: $permissionGuide, onDismiss: { dismiss() }) { PermissionGuideView(kind: $0) }
         .fullScreenCover(isPresented: $showPreview) {
             RingView(mode: .preview(draft))
         }
@@ -197,6 +201,42 @@ struct AlarmEditView: View {
         }
     }
 
+    private var snoozeBlock: some View {
+        Block(label: strings["edit_snooze"]) {
+            Toggle(isOn: $draft.snoozeEnabled) {
+                Text(strings["edit_snooze_description"])
+                    .font(Theme.rounded(13, weight: .semibold))
+                    .foregroundStyle(Theme.textMuted)
+            }
+            .tint(Theme.sun)
+            if draft.snoozeEnabled {
+                Text(strings["edit_snooze_interval"])
+                    .font(Theme.rounded(13, weight: .bold))
+                    .foregroundStyle(Theme.textMuted)
+                    .padding(.top, 4)
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 5), spacing: 8) {
+                    ForEach(SnoozeOption.intervals, id: \.self) { minutes in
+                        Chip(title: strings.format("snooze_interval_value", ["minutes": minutes]),
+                             isSelected: draft.snoozeMinutes == minutes) { draft.snoozeMinutes = minutes }
+                    }
+                }
+                Text(strings["edit_snooze_limit"])
+                    .font(Theme.rounded(13, weight: .bold))
+                    .foregroundStyle(Theme.textMuted)
+                    .padding(.top, 4)
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
+                    ForEach(SnoozeOption.limits, id: \.self) { limit in
+                        Chip(title: limit == SnoozeOption.unlimited
+                                ? strings["snooze_limit_unlimited"]
+                                : strings.format("snooze_limit_value", ["count": limit]),
+                             isSelected: draft.snoozeLimit == limit) { draft.snoozeLimit = limit }
+                    }
+                }
+            }
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: draft.snoozeEnabled)
+    }
+
     private var deleteButton: some View {
         Button(strings["edit_delete"], role: .destructive) { confirmDelete = true }
             .font(Theme.rounded(15, weight: .bold))
@@ -251,6 +291,10 @@ struct AlarmEditView: View {
                 dismiss()
             } catch {
                 // 저장은 됐고 예약만 실패(권한 거부 등)면 안내 후 닫는다.
+                if let kind = AlarmService.permissionIssue(in: error) {
+                    permissionGuide = kind
+                    return
+                }
                 if case AlarmServiceError.schedulingFailed = error { dismissAfterError = true }
                 errorMessage = strings.message(for: error)
             }

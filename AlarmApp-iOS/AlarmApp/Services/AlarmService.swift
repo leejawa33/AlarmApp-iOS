@@ -14,6 +14,10 @@ nonisolated struct AlarmDraft: Sendable, Equatable {
     /// 따라쓰기 미션 문장 id. 빈 배열 = 전체
     var promptIDs: [String] = []
     var isEnabled: Bool = true
+    /// 알람 미루기 (기획서 11.6). `snoozeLimit` 0 = 무제한
+    var snoozeEnabled: Bool = false
+    var snoozeMinutes: Int = SnoozeOption.defaultMinutes
+    var snoozeLimit: Int = SnoozeOption.defaultLimit
 }
 
 nonisolated enum AlarmValidationError: Error, Equatable {
@@ -26,6 +30,24 @@ nonisolated enum AlarmValidationError: Error, Equatable {
     /// 동시에 둘 수 있는 퀵알람 수 초과
     case quickLimitReached(max: Int)
     case invalidQuickMinutes(Int)
+    case invalidSnoozeMinutes(Int)
+    case invalidSnoozeLimit(Int)
+    /// 미루기를 끈 알람이거나 횟수 제한에 도달했거나 알람을 찾을 수 없음
+    case snoozeUnavailable
+}
+
+/// 지금 울리는 id가 가리키는 알람과, 이번 회차에서 이미 미룬 횟수
+struct RingTarget {
+    let alarm: Alarm?
+    let snoozesUsed: Int
+}
+
+/// 앱이 쓰는 권한 두 가지. iPhone 설정의 앱 페이지 한 곳에서 함께 켜고 끈다.
+nonisolated enum PermissionKind: Sendable, Equatable {
+    /// AlarmKit 알람 권한 (일반 알람·미루기)
+    case alarm
+    /// 알림 권한 (퀵알람)
+    case notification
 }
 
 nonisolated enum AlarmServiceError: Error {
@@ -52,6 +74,8 @@ final class AlarmService {
 
     /// 알람 권한 상태. 메인 화면 경고 배너·설정 화면에서 쓴다.
     private(set) var authorization: AlarmAuthorization
+    /// 알림 권한 상태(퀵알람). 알람 권한과 별개. 비동기로만 읽을 수 있어 `refreshNotificationAuthorization()`으로 갱신한다.
+    private(set) var notificationAuthorization: AlarmAuthorization = .notDetermined
 
     init(context: ModelContext, catalog: AssetCatalog, scheduler: any AlarmScheduling,
          ringing: RingingAlarmCenter = .shared) {
@@ -61,6 +85,9 @@ final class AlarmService {
         self.ringing = ringing
         self.authorization = scheduler.authorization
         refreshQuickAlarmIDs()
+        ringing.onAlarmsChanged = { [weak self] in
+            Task { try? await self?.purgeFiredQuickAlarms() }
+        }
     }
 
     /// 사용자 동작(버튼)에서만 호출. 아직 안 물었으면 시스템 권한 창을 띄우고, 허용되면 바로 예약을 맞춘다.
@@ -74,10 +101,37 @@ final class AlarmService {
     /// `설정 열기` 버튼 동작. 설정 앱을 열어야 하면 true.
     /// - 아직 안 물었으면: 앱 안 권한 창 → 거절했을 때만 설정 앱
     /// - 허용·거부 상태면: 바로 설정 앱 (켜져 있어도 확인·끄기를 할 수 있어야 한다)
-    func handleOpenSettingsTap() async -> Bool {
-        refreshAuthorization()
-        guard authorization == .notDetermined else { return true }
-        return await requestAuthorization() != .authorized
+    func handleOpenSettingsTap(_ kind: PermissionKind = .alarm) async -> Bool {
+        switch kind {
+        case .alarm:
+            refreshAuthorization()
+            guard authorization == .notDetermined else { return true }
+            return await requestAuthorization() != .authorized
+        case .notification:
+            await refreshNotificationAuthorization()
+            guard notificationAuthorization == .notDetermined else { return true }
+            notificationAuthorization = await scheduler.requestNotificationAuthorization()
+            return notificationAuthorization != .authorized
+        }
+    }
+
+    func refreshNotificationAuthorization() async {
+        notificationAuthorization = await scheduler.notificationAuthorization()
+    }
+
+    func authorization(for kind: PermissionKind) -> AlarmAuthorization {
+        kind == .alarm ? authorization : notificationAuthorization
+    }
+
+    /// 에러가 권한 때문이면 어느 권한인지. 안내 화면(`PermissionGuideView`)을 띄울지 판단하는 데 쓴다.
+    static func permissionIssue(in error: any Error) -> PermissionKind? {
+        guard case AlarmServiceError.schedulingFailed(let underlying) = error,
+              let reason = underlying as? AlarmSchedulerError else { return nil }
+        switch reason {
+        case .notAuthorized: return .alarm
+        case .notificationsNotAuthorized: return .notification
+        default: return nil
+        }
     }
 
     /// 앱이 활성화될 때 호출 (설정 앱에서 권한을 바꾸고 돌아온 경우)
@@ -117,7 +171,8 @@ final class AlarmService {
         let alarm = Alarm(
             title: valid.title, hour: valid.hour, minute: valid.minute, weekdays: valid.weekdays,
             isEnabled: valid.isEnabled, mission: valid.mission, mediaID: valid.mediaID, soundID: valid.soundID,
-            promptIDs: valid.promptIDs
+            promptIDs: valid.promptIDs, snoozeEnabled: valid.snoozeEnabled,
+            snoozeMinutes: valid.snoozeMinutes, snoozeLimit: valid.snoozeLimit
         )
         context.insert(alarm)
         try context.save()
@@ -136,7 +191,11 @@ final class AlarmService {
         alarm.soundID = valid.soundID
         alarm.promptIDs = valid.promptIDs
         alarm.isEnabled = valid.isEnabled
+        alarm.snoozeEnabled = valid.snoozeEnabled
+        alarm.snoozeMinutes = valid.snoozeMinutes
+        alarm.snoozeLimit = valid.snoozeLimit
         try context.save()
+        if !alarm.snoozeEnabled { await clearSnoozes(forAlarm: alarm.id) }
         try await sync(alarm)
     }
 
@@ -150,6 +209,7 @@ final class AlarmService {
         let id = alarm.id
         context.delete(alarm)
         try context.save()
+        await clearSnoozes(forAlarm: id)
         do {
             try await scheduler.cancel(id: id)
         } catch {
@@ -159,8 +219,11 @@ final class AlarmService {
 
     /// 미션 완료: 울리는 알람을 멈춘다. 반복 예약은 그대로 남는다.
     /// 정지에 실패해도 미션은 끝난 것으로 처리한다(알람이 계속 울리면 실행 화면이 다시 뜬다).
+    /// 이 회차에서 대기 중이던 미루기 예약은 함께 지운다. `alarmID`는 미루기 재울림 id여도 된다.
     func completeMission(alarmID: UUID) async {
+        let parentID = resolveRing(alarmID).alarm?.id ?? alarmID
         try? await scheduler.stop(id: alarmID)
+        await clearSnoozes(forAlarm: parentID)
     }
 
     /// SwiftData 기준으로 OS 스케줄을 다시 맞춘다. 앱 시작 시 호출.
@@ -170,13 +233,16 @@ final class AlarmService {
     ///   권한이 없으면 아무것도 하지 않고, 권한 요청은 사용자 동작(저장·켜기)에서만 한다.
     func reconcile() async throws {
         defer { refreshAuthorization() }
+        try? await purgeFiredQuickAlarms() // 퀵알람은 알림 권한만 있으면 되므로 AlarmKit 권한과 무관하게 정리
         guard scheduler.authorization == .authorized else { return }
         let enabled = try context.fetch(FetchDescriptor<Alarm>(predicate: #Predicate { $0.isEnabled }))
         let enabledIDs = Set(enabled.map(\.id))
         try purgeExpiredQuickAlarms()
         // 퀵알람 행은 방금 울린 것도 보호한다(cancel하면 울리는 소리가 멈춘다).
         let quickIDs = Set(try context.fetch(FetchDescriptor<QuickAlarm>()).map(\.id))
-        for staleID in try await scheduler.scheduledIDs().subtracting(enabledIDs).subtracting(quickIDs) {
+        try cleanUpSnoozeRecords(enabledAlarmIDs: enabledIDs)
+        let snoozeIDs = Set(try context.fetch(FetchDescriptor<SnoozeRecord>()).map(\.id))
+        for staleID in try await scheduler.scheduledIDs().subtracting(enabledIDs).subtracting(quickIDs).subtracting(snoozeIDs) {
             try await scheduler.cancel(id: staleID)
         }
         for alarm in enabled {
@@ -185,6 +251,90 @@ final class AlarmService {
         for quick in try pendingQuickAlarms() {
             try await scheduler.scheduleOnce(quick.snapshot)
         }
+        for snooze in try pendingSnoozes() {
+            if let alarm = enabled.first(where: { $0.id == snooze.alarmID }) {
+                try await scheduler.scheduleOnce(oneShot(for: snooze, alarm: alarm))
+            }
+        }
+    }
+
+    // MARK: 알람 미루기 (기획서 11.6)
+
+    /// 지금 울리는 id(원래 알람 id 또는 미루기 재울림 id)가 가리키는 알람과 이번 회차 미룬 횟수
+    func resolveRing(_ id: UUID) -> RingTarget {
+        if let alarm = try? context.fetch(FetchDescriptor<Alarm>(predicate: #Predicate { $0.id == id })).first {
+            return RingTarget(alarm: alarm, snoozesUsed: 0)
+        }
+        if let record = try? context.fetch(FetchDescriptor<SnoozeRecord>(predicate: #Predicate { $0.id == id })).first {
+            let parentID = record.alarmID
+            let alarm = try? context.fetch(FetchDescriptor<Alarm>(predicate: #Predicate { $0.id == parentID })).first
+            return RingTarget(alarm: alarm, snoozesUsed: record.count)
+        }
+        return RingTarget(alarm: nil, snoozesUsed: 0)
+    }
+
+    /// 아직 울리지 않은 미루기 예약(울릴 시각 순)
+    func pendingSnoozes(now: Date = .now) throws -> [SnoozeRecord] {
+        try context.fetch(FetchDescriptor<SnoozeRecord>(
+            predicate: #Predicate { $0.fireDate > now },
+            sortBy: [SortDescriptor(\.fireDate)]
+        ))
+    }
+
+    /// 지금 울리는 알람을 멈추고 설정한 간격 뒤에 같은 알람이 다시 울리게 예약한다.
+    /// 예약에 실패하면 소리를 멈추지 않고 에러를 던진다(미룰 수 없는데 꺼지면 안 된다).
+    func snooze(ringID: UUID, now: Date = .now) async throws {
+        let target = resolveRing(ringID)
+        guard let alarm = target.alarm, alarm.snoozeEnabled,
+              SnoozeOption.canSnooze(limit: alarm.snoozeLimit, used: target.snoozesUsed)
+        else { throw AlarmValidationError.snoozeUnavailable }
+        let parentID = alarm.id
+        let previous = try context.fetch(FetchDescriptor<SnoozeRecord>(predicate: #Predicate { $0.alarmID == parentID }))
+        let record = SnoozeRecord(alarmID: parentID, count: target.snoozesUsed + 1,
+                                  fireDate: SnoozeOption.fireDate(after: now, minutes: alarm.snoozeMinutes), createdAt: now)
+        context.insert(record)
+        try context.save()
+        defer { refreshAuthorization() }
+        do {
+            try await scheduler.scheduleOnce(oneShot(for: record, alarm: alarm))
+        } catch {
+            context.delete(record)
+            try? context.save()
+            throw AlarmServiceError.schedulingFailed(underlying: error)
+        }
+        // 예약이 된 뒤에 지금 울림을 멈추고, 이전 미루기 기록(방금 울린 것 포함)을 정리한다.
+        try? await scheduler.stop(id: ringID)
+        for old in previous {
+            let oldID = old.id
+            context.delete(old)
+            try? await scheduler.cancel(id: oldID)
+        }
+        try context.save()
+    }
+
+    private func oneShot(for record: SnoozeRecord, alarm: Alarm) -> OneShotSnapshot {
+        OneShotSnapshot(id: record.id, kind: .snooze(title: alarm.title, soundID: alarm.soundID), fireDate: record.fireDate)
+    }
+
+    /// 원래 알람의 대기 중 미루기 예약을 모두 지운다(끄기·삭제·미션 완료·미루기 끔).
+    private func clearSnoozes(forAlarm alarmID: UUID) async {
+        guard let records = try? context.fetch(FetchDescriptor<SnoozeRecord>(predicate: #Predicate { $0.alarmID == alarmID })),
+              !records.isEmpty else { return }
+        let ids = records.map(\.id)
+        records.forEach(context.delete)
+        try? context.save()
+        for id in ids { try? await scheduler.cancel(id: id) }
+    }
+
+    /// 알람이 없어졌거나 꺼졌거나 미루기가 꺼진 기록, 울린 지 1시간이 지난 기록을 지운다.
+    /// 방금 울려 소리가 나는 중일 수 있어서 울린 직후 기록은 남긴다.
+    private func cleanUpSnoozeRecords(enabledAlarmIDs: Set<UUID>, now: Date = .now) throws {
+        let cutoff = now.addingTimeInterval(-3600)
+        let records = try context.fetch(FetchDescriptor<SnoozeRecord>())
+        let stale = records.filter { !enabledAlarmIDs.contains($0.alarmID) || $0.fireDate < cutoff }
+        guard !stale.isEmpty else { return }
+        stale.forEach(context.delete)
+        try context.save()
     }
 
     // MARK: 퀵알람 (기획서 11.7)
@@ -233,6 +383,19 @@ final class AlarmService {
         }
     }
 
+    /// 울린 뒤 끝난(OS 알람 목록에서 사라진) 퀵알람 행을 바로 지운다. 알라미처럼 종료하면 메인에서 없어진다.
+    /// 아직 울리는 중이면 OS 목록에 남아 있으므로 지우지 않는다(지우면 `reconcile()`이 소리를 끊을 수 있다).
+    func purgeFiredQuickAlarms(now: Date = .now) async throws {
+        let fired = try context.fetch(FetchDescriptor<QuickAlarm>(predicate: #Predicate { $0.fireDate <= now }))
+        guard !fired.isEmpty else { return }
+        let live = try await scheduler.scheduledIDs()
+        let finished = fired.filter { !live.contains($0.id) }
+        guard !finished.isEmpty else { return }
+        finished.forEach(context.delete)
+        try context.save()
+        refreshQuickAlarmIDs()
+    }
+
     /// 울린 지 한참 지난 퀵알람 행을 지운다. 방금 울려 소리가 나는 중일 수 있어 1시간은 남겨 둔다.
     func purgeExpiredQuickAlarms(now: Date = .now) throws {
         let cutoff = now.addingTimeInterval(-3600)
@@ -258,6 +421,8 @@ final class AlarmService {
         guard (0...23).contains(draft.hour), (0...59).contains(draft.minute) else { throw AlarmValidationError.invalidTime }
         guard catalog.media.contains(where: { $0.id == draft.mediaID }) else { throw AlarmValidationError.unknownMedia(draft.mediaID) }
         guard catalog.sounds.contains(where: { $0.id == draft.soundID }) else { throw AlarmValidationError.unknownSound(draft.soundID) }
+        guard SnoozeOption.isValidInterval(draft.snoozeMinutes) else { throw AlarmValidationError.invalidSnoozeMinutes(draft.snoozeMinutes) }
+        guard SnoozeOption.isValidLimit(draft.snoozeLimit) else { throw AlarmValidationError.invalidSnoozeLimit(draft.snoozeLimit) }
         return draft
     }
 
@@ -267,6 +432,7 @@ final class AlarmService {
             if alarm.isEnabled {
                 try await scheduler.schedule(alarm.snapshot)
             } else {
+                await clearSnoozes(forAlarm: alarm.id)
                 try await scheduler.cancel(id: alarm.id)
             }
         } catch {
