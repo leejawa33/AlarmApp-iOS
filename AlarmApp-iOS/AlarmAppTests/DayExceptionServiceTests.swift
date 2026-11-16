@@ -242,6 +242,65 @@ struct DayExceptionServiceTests {
         #expect(service.resolveRing(shot.id).alarm?.id == alarm.id)
     }
 
+    // MARK: 편집 중 쌓아 둔 변경을 저장할 때 한꺼번에
+
+    @Test func stagedExceptionsAreAppliedTogetherWithAlarmSave() async throws {
+        let alarm = try await makeAlarm()
+        var draft = alarm.draft
+        draft.title = "새 이름"
+        draft.exceptionChanges[dayKey(plus: 1)] = .set(change(dayKey(plus: 1), 5, 30))
+        draft.exceptionChanges[dayKey(plus: 2)] = .set(DayExceptionValue(dayKey: dayKey(plus: 2), kind: .skip, hour: 0, minute: 0))
+        try await service.update(alarm, with: draft)
+        #expect(alarm.title == "새 이름")
+        #expect(try exceptionRows().count == 2)
+        let weekly = try #require(scheduler.scheduled[alarm.id])
+        #expect(weekly.schedule.weekdays == Set(Weekday.allCases).subtracting([weekday(of: dayKey(plus: 1)), weekday(of: dayKey(plus: 2))]))
+        #expect(try records().filter { $0.role == .exception }.count == 1, "건너뛴 날은 대체 예약 없음")
+    }
+
+    @Test func nothingIsSavedWhenStagedChangeIsInvalid() async throws {
+        let alarm = try await makeAlarm()
+        var draft = alarm.draft
+        draft.title = "바뀌면 안 됨"
+        // 올바르지 않은 새 시각(24시)을 쌓아 둔 경우
+        draft.exceptionChanges[dayKey(plus: 1)] = .set(DayExceptionValue(dayKey: dayKey(plus: 1), kind: .change, hour: 24, minute: 0))
+        await #expect(throws: AlarmValidationError.invalidExceptionTime) { try await service.update(alarm, with: draft) }
+        #expect(alarm.title == "출근", "하나라도 잘못이면 알람 내용도 저장하지 않는다")
+        #expect(try exceptionRows().isEmpty)
+    }
+
+    @Test func stagedChangeForRemovedWeekdayIsDropped() async throws {
+        let alarm = try await makeAlarm()
+        let key = dayKey(plus: 1)
+        var draft = alarm.draft
+        draft.weekdays = Set(Weekday.allCases).subtracting([weekday(of: key)])
+        draft.exceptionChanges[key] = .set(change(key))
+        try await service.update(alarm, with: draft)
+        #expect(try exceptionRows().isEmpty, "요일에서 뺀 날의 변경은 조용히 버린다")
+        #expect(scheduler.scheduledOnce.isEmpty)
+    }
+
+    @Test func stagedClearRemovesPersistedException() async throws {
+        let alarm = try await makeAlarm()
+        let key = dayKey(plus: 1)
+        try await service.setException(for: alarm, change(key))
+        var draft = alarm.draft
+        draft.exceptionChanges[key] = .clear
+        try await service.update(alarm, with: draft)
+        #expect(try exceptionRows().isEmpty)
+        #expect(scheduler.scheduled[alarm.id]?.schedule.weekdays == Set(Weekday.allCases))
+        #expect(scheduler.scheduledOnce.isEmpty)
+    }
+
+    @Test func draftWithoutStagedChangesLeavesExceptionsAlone() async throws {
+        let alarm = try await makeAlarm()
+        try await service.setException(for: alarm, change(dayKey(plus: 1)))
+        var draft = alarm.draft
+        draft.title = "이름만 변경"
+        try await service.update(alarm, with: draft)
+        #expect(try exceptionRows().count == 1)
+    }
+
     // MARK: 다음 기상
 
     @Test func nextWakeIsEarliestAndReportsReason() async throws {
@@ -378,7 +437,7 @@ struct RingMemoTests {
 
     @Test func stringsExistInBothLanguages() {
         let keys = ["schedule_title", "schedule_description", "schedule_empty", "schedule_badge_base", "schedule_badge_changed",
-                    "schedule_badge_skipped", "schedule_row_skipped", "schedule_note_rule", "schedule_note_live", "schedule_save_first", "schedule_save_continue", "exception_title", "exception_mode", "exception_change", "exception_skip",
+                    "schedule_badge_skipped", "schedule_row_skipped", "schedule_note_rule", "schedule_note_live", "edit_back", "edit_discard_confirm", "edit_discard", "edit_keep_editing", "exception_title", "exception_mode", "exception_change", "exception_skip",
                     "exception_time", "exception_base_note", "exception_skip_note", "exception_next_week", "exception_memo",
                     "memo_mode_inherit", "memo_mode_custom", "memo_mode_silent", "exception_memo_placeholder", "exception_clear",
                     "exception_clear_hint", "exception_save", "error_exception_unavailable", "error_exception_time",

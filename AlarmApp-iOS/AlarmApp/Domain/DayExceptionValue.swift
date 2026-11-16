@@ -18,6 +18,12 @@ nonisolated enum MemoMode: String, Sendable, Equatable, CaseIterable {
     case silent
 }
 
+/// 알람 편집 중 쌓아 두는 이번만 변경(저장할 때 한꺼번에 적용한다)
+nonisolated enum ExceptionChange: Sendable, Equatable {
+    case set(DayExceptionValue)
+    case clear
+}
+
 /// 순수 값으로 옮긴 이번만 변경 (`DayException` @Model의 스냅샷)
 nonisolated struct DayExceptionValue: Sendable, Equatable {
     var dayKey: Int

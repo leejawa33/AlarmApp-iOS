@@ -136,11 +136,13 @@
   "edit_memo_voice_hint": "The voice follows Settings → Accessibility → Spoken Content → Voices.",
   "edit_snooze_use": "Use snooze",
   "schedule_note_rule": "Alarms that already rang today aren't listed. You can change the same weekday from next week's alarm.",
-  "schedule_note_live": "Changing days or time on the edit screen updates this list right away. If you have unsaved changes, tapping a day lets you save and continue.",
-  "schedule_save_first": "You have unsaved changes. Save them and change this day?",
-  "schedule_save_continue": "Save and continue",
+  "schedule_note_live": "Changing days or time on the edit screen updates this list right away. Changes made here are applied when you save the alarm.",
   "snooze_summary": "On · {interval} · {limit}",
   "snooze_summary_off": "Off",
   "snooze_page_description": "Tap Snooze on the ring screen to ring again after a while. You still need the mission to turn it off.",
-  "snooze_page_note": "Interval and limit are hidden when snooze is off. The edit screen shows just a summary."
+  "snooze_page_note": "Interval and limit are hidden when snooze is off. The edit screen shows just a summary.",
+  "edit_back": "Back",
+  "edit_discard_confirm": "Discard your changes?",
+  "edit_discard": "Discard",
+  "edit_keep_editing": "Keep editing"
 }

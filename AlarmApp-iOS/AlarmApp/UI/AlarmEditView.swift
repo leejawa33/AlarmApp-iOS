@@ -25,8 +25,13 @@ struct AlarmEditView: View {
     @State private var showPromptPicker = false
     @State private var prompts: TranscriptionPrompts?
 
+    /// 열 때의 값. 지금 값과 다르면 뒤로 갈 때 변경을 버릴지 묻는다.
+    private let initialDraft: AlarmDraft
+    @State private var confirmDiscard = false
+
     init(alarm: Alarm?, initialDraft: AlarmDraft) {
         self.alarm = alarm
+        self.initialDraft = initialDraft
         _draft = State(initialValue: initialDraft)
     }
 
@@ -58,9 +63,12 @@ struct AlarmEditView: View {
         .safeAreaInset(edge: .bottom) { actions }
         .navigationTitle(strings[alarm == nil ? "edit_title_new" : "edit_title_edit"])
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .navigationBarBackButtonHidden()
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button(strings["edit_cancel"]) { dismiss() }
+                Button { back() } label: { Image(systemName: "chevron.left").fontWeight(.bold) }
+                    .accessibilityLabel(strings["edit_back"])
             }
             if alarm != nil {
                 ToolbarItem(placement: .destructiveAction) {
@@ -68,6 +76,10 @@ struct AlarmEditView: View {
                         .tint(Theme.cta)
                 }
             }
+        }
+        .confirmationDialog(strings["edit_discard_confirm"], isPresented: $confirmDiscard, titleVisibility: .visible) {
+            Button(strings["edit_discard"], role: .destructive) { dismiss() }
+            Button(strings["edit_keep_editing"], role: .cancel) {}
         }
         .confirmationDialog(strings["edit_delete_confirm"], isPresented: $confirmDelete, titleVisibility: .visible) {
             Button(strings["edit_delete"], role: .destructive) { delete() }
@@ -80,8 +92,7 @@ struct AlarmEditView: View {
         .navigationDestination(isPresented: $showSnooze) { SnoozeSettingsView(draft: $draft) }
         .navigationDestination(isPresented: $showSchedule) {
             if let alarm {
-                ScheduleView(alarm: alarm, schedule: AlarmSchedule(hour: draft.hour, minute: draft.minute, weekdays: draft.weekdays),
-                             saveDraft: { try await service.update(alarm, with: draft) })
+                ScheduleView(alarm: alarm, draft: $draft)
             }
         }
         .fullScreenCover(isPresented: $showPreview) {
@@ -375,6 +386,11 @@ struct AlarmEditView: View {
             draft.hour = parts.hour ?? draft.hour
             draft.minute = parts.minute ?? draft.minute
         }
+    }
+
+    /// 뒤로 가기: 저장하지 않은 변경이 있으면 버릴지 묻는다.
+    private func back() {
+        if draft == initialDraft { dismiss() } else { confirmDiscard = true }
     }
 
     private func save() {

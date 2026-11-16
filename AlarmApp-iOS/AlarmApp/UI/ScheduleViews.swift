@@ -2,22 +2,30 @@ import SwiftUI
 
 /// 이번 주 일정 페이지(알람 편집에서 이동): 지금부터 7일의 울림을 요일순으로 보여 주고, 누르면 이번만 변경 편집으로 간다. (기획서 11.2)
 /// 목록은 편집 화면에서 **고르고 있는 요일·시각(저장 전 포함)** 기준이라 요일을 빼거나 더하면 바로 반영된다.
-/// 이번만 변경은 저장된 알람에만 걸 수 있어서, 저장하지 않은 요일·시각 변경이 있으면 목록만 보여 준다.
+/// 여기서 한 이번만 변경은 편집 중 `draft`에 쌓아 두었다가 알람 편집의 `저장`에서 한꺼번에 저장·적용한다(되돌리려면 편집을 취소).
 struct ScheduleView: View {
     let alarm: Alarm
-    /// 편집 화면에서 지금 고른 요일·시각
-    let schedule: AlarmSchedule
-    /// 편집 중인 알람 내용을 저장한다(저장하지 않은 요일·시각 변경이 있을 때 "저장하고 계속"에서 쓴다).
-    let saveDraft: () async throws -> Void
+    @Binding var draft: AlarmDraft
 
     @Environment(AlarmService.self) private var service
     @Environment(Strings.self) private var strings
-    @State private var occurrences: [Occurrence] = []
     @State private var editing: Occurrence?
-    @State private var pendingOccurrence: Occurrence?
-    @State private var errorMessage: String?
 
-    private var isDirty: Bool { schedule != alarm.schedule }
+    /// 저장된 이번만 변경에 편집 중 쌓아 둔 변경을 덧씌운 결과
+    private var effectiveExceptions: [DayExceptionValue] {
+        var byDay = Dictionary(service.exceptions(for: alarm).map { ($0.dayKey, $0) }, uniquingKeysWith: { _, last in last })
+        for (key, change) in draft.exceptionChanges {
+            switch change {
+            case .set(let value): byDay[key] = value
+            case .clear: byDay[key] = nil
+            }
+        }
+        return Array(byDay.values)
+    }
+
+    private var occurrences: [Occurrence] {
+        OccurrenceResolver.upcoming(schedule: draft.schedule, exceptions: effectiveExceptions, now: .now)
+    }
 
     var body: some View {
         ScrollView {
@@ -34,9 +42,7 @@ struct ScheduleView: View {
                         .padding(.vertical, 12)
                 } else {
                     ForEach(occurrences) { occurrence in
-                        Button {
-                            if isDirty { pendingOccurrence = occurrence } else { editing = occurrence }
-                        } label: { row(occurrence) }
+                        Button { editing = occurrence } label: { row(occurrence) }
                             .buttonStyle(.plain)
                     }
                 }
@@ -52,16 +58,7 @@ struct ScheduleView: View {
         .background(Theme.bg.ignoresSafeArea())
         .navigationTitle(strings["schedule_title"])
         .navigationBarTitleDisplayMode(.inline)
-        .confirmationDialog(strings["schedule_save_first"], isPresented: .init(get: { pendingOccurrence != nil }, set: { if !$0 { pendingOccurrence = nil } }),
-                            titleVisibility: .visible) {
-            Button(strings["schedule_save_continue"]) { saveThenEdit() }
-            Button(strings["edit_cancel"], role: .cancel) {}
-        }
-        .alert(errorMessage ?? "", isPresented: .init(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
-            Button(strings["common_ok"]) {}
-        }
         .onAppear {
-            reload()
             #if DEBUG
             if DebugLaunch.pendingExceptionSheet {
                 DebugLaunch.pendingExceptionSheet = false
@@ -69,28 +66,24 @@ struct ScheduleView: View {
             }
             #endif
         }
-        .onChange(of: schedule) { reload() }
-        .sheet(item: $editing, onDismiss: reload) { occurrence in
-            NavigationStack { ExceptionEditView(alarm: alarm, occurrence: occurrence) }
-        }
-    }
-
-    /// 편집 중인 변경을 저장한 뒤 누른 회차의 이번만 변경을 연다.
-    private func saveThenEdit() {
-        guard let target = pendingOccurrence else { return }
-        Task {
-            do {
-                try await saveDraft()
-                reload()
-                editing = occurrences.first { $0.dayKey == target.dayKey } ?? target
-            } catch {
-                errorMessage = strings.message(for: error)
+        .sheet(item: $editing) { occurrence in
+            NavigationStack {
+                ExceptionEditView(schedule: draft.schedule, memoEnabled: draft.memoReadEnabled, occurrence: occurrence) { change in
+                    apply(change, to: occurrence.dayKey)
+                }
             }
         }
     }
 
-    private func reload() {
-        occurrences = OccurrenceResolver.upcoming(schedule: schedule, exceptions: service.exceptions(for: alarm), now: .now)
+    /// 편집 중인 변경으로 쌓아 둔다. 저장된 변경이 없는 날을 "취소"하면 쌓인 변경만 지운다.
+    private func apply(_ change: ExceptionChange, to dayKey: Int) {
+        switch change {
+        case .set:
+            draft.exceptionChanges[dayKey] = change
+        case .clear:
+            let persisted = service.exceptions(for: alarm).contains { $0.dayKey == dayKey }
+            draft.exceptionChanges[dayKey] = persisted ? .clear : nil
+        }
     }
 
     private func row(_ occurrence: Occurrence) -> some View {
@@ -141,12 +134,16 @@ struct ScheduleView: View {
     }
 }
 
-/// 이번만 변경 편집: 시각 변경 / 건너뛰기 · 메모(기본/이번만 다른/읽지 않기) · 변경 취소
+/// 이번만 변경 편집: 시각 변경 / 건너뛰기 · 메모(기본/이번만 다른/읽지 않기) · 변경 취소.
+/// 저장하지 않고 `onApply`로 결과만 돌려준다(알람 편집의 `저장`에서 한꺼번에 적용).
 struct ExceptionEditView: View {
-    let alarm: Alarm
+    /// 편집 화면에서 지금 고른 기본 요일·시각
+    let schedule: AlarmSchedule
+    /// 알람의 메모 읽어주기가 켜져 있는지(꺼져 있으면 메모 항목을 숨긴다)
+    let memoEnabled: Bool
     let occurrence: Occurrence
+    let onApply: (ExceptionChange) -> Void
 
-    @Environment(AlarmService.self) private var service
     @Environment(Strings.self) private var strings
     @Environment(\.dismiss) private var dismiss
 
@@ -154,12 +151,11 @@ struct ExceptionEditView: View {
     @State private var time = Date()
     @State private var memoMode: MemoMode = .inherit
     @State private var memoText = ""
-    @State private var isSaving = false
     @State private var errorMessage: String?
 
     private var day: Date { DayKey.startOfDay(occurrence.dayKey) ?? .now }
     private var weekdayName: String { day.formatted(.dateTime.weekday(.wide).locale(strings.locale)) }
-    private var baseTime: String { strings.time(hour: alarm.hour, minute: alarm.minute) }
+    private var baseTime: String { strings.time(hour: schedule.hour, minute: schedule.minute) }
 
     var body: some View {
         ScrollView {
@@ -171,7 +167,7 @@ struct ExceptionEditView: View {
                     }
                 }
                 if kind == .change { timeBlock } else { skipBlock }
-                if alarm.memoReadEnabled && kind == .change { memoBlock }
+                if memoEnabled && kind == .change { memoBlock }
                 if occurrence.exception != nil { clearButton }
                 Text(strings.format("exception_next_week", ["weekday": weekdayName, "time": baseTime]))
                     .font(Theme.rounded(12, weight: .semibold))
@@ -187,9 +183,7 @@ struct ExceptionEditView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button(strings["edit_cancel"]) { dismiss() } }
-            ToolbarItem(placement: .confirmationAction) {
-                Button(strings["exception_save"]) { save() }.disabled(isSaving)
-            }
+            ToolbarItem(placement: .confirmationAction) { Button(strings["exception_save"]) { save() } }
         }
         .alert(errorMessage ?? "", isPresented: .init(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
             Button(strings["common_ok"]) {}
@@ -239,7 +233,8 @@ struct ExceptionEditView: View {
 
     private var clearButton: some View {
         Button {
-            clear()
+            onApply(.clear)
+            dismiss()
         } label: {
             HStack {
                 Text(strings["exception_clear"])
@@ -265,38 +260,22 @@ struct ExceptionEditView: View {
         kind = value?.kind ?? .change
         memoMode = value?.memoMode ?? .inherit
         memoText = value?.memoText ?? ""
-        let hour = value.map { $0.kind == .change ? $0.hour : alarm.hour } ?? alarm.hour
-        let minute = value.map { $0.kind == .change ? $0.minute : alarm.minute } ?? alarm.minute
+        let hour = value.map { $0.kind == .change ? $0.hour : schedule.hour } ?? schedule.hour
+        let minute = value.map { $0.kind == .change ? $0.minute : schedule.minute } ?? schedule.minute
         time = Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: day) ?? .now
     }
 
     private func save() {
         let parts = Calendar.current.dateComponents([.hour, .minute], from: time)
-        let value = DayExceptionValue(dayKey: occurrence.dayKey, kind: kind, hour: parts.hour ?? 0, minute: parts.minute ?? 0,
+        let hour = parts.hour ?? 0, minute = parts.minute ?? 0
+        if kind == .change, !OccurrenceResolver.isValidChange(hour, minute, on: occurrence.dayKey, now: .now) {
+            errorMessage = strings["error_exception_time"]
+            return
+        }
+        let value = DayExceptionValue(dayKey: occurrence.dayKey, kind: kind, hour: hour, minute: minute,
                                       memoMode: kind == .change ? memoMode : .inherit, memoText: memoMode == .custom ? memoText : "")
-        isSaving = true
-        Task {
-            defer { isSaving = false }
-            do {
-                try await service.setException(for: alarm, value)
-                dismiss()
-            } catch {
-                errorMessage = strings.message(for: error)
-            }
-        }
-    }
-
-    private func clear() {
-        isSaving = true
-        Task {
-            defer { isSaving = false }
-            do {
-                try await service.clearException(for: alarm, dayKey: occurrence.dayKey)
-                dismiss()
-            } catch {
-                errorMessage = strings.message(for: error)
-            }
-        }
+        onApply(.set(value))
+        dismiss()
     }
 }
 

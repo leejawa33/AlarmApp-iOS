@@ -68,10 +68,8 @@ struct MainView: View {
             NavigationStack { QuickAlarmView() }
                 .environment(\.locale, strings.locale)
         }
-        .sheet(item: $editing) { target in
-            NavigationStack {
-                AlarmEditView(alarm: target.alarm, initialDraft: target.draft)
-            }
+        .navigationDestination(item: $editing) { target in
+            AlarmEditView(alarm: target.alarm, initialDraft: target.draft)
         }
         .alert(errorMessage ?? "", isPresented: .init(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
             Button(strings["common_ok"]) {}
@@ -276,7 +274,7 @@ struct MainView: View {
 }
 
 /// 편집 시트 대상: 새 알람(기본값 draft) 또는 기존 알람
-enum EditTarget: Identifiable {
+enum EditTarget: Identifiable, Hashable {
     case new(AlarmDraft)
     case existing(Alarm)
 
@@ -286,6 +284,9 @@ enum EditTarget: Identifiable {
         case .existing(let alarm): alarm.id.uuidString
         }
     }
+
+    static func == (lhs: EditTarget, rhs: EditTarget) -> Bool { lhs.id == rhs.id }
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
 
     var alarm: Alarm? {
         if case .existing(let alarm) = self { alarm } else { nil }

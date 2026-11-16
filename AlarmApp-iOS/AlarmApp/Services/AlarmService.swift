@@ -21,6 +21,10 @@ nonisolated struct AlarmDraft: Sendable, Equatable {
     /// 메모 읽어주기 (기획서 11.5)
     var memoText: String = ""
     var memoReadEnabled: Bool = false
+    /// 편집 중 쌓아 둔 이번만 변경(dayKey별). `AlarmService.update`가 알람 저장과 함께 한꺼번에 적용한다.
+    var exceptionChanges: [Int: ExceptionChange] = [:]
+
+    var schedule: AlarmSchedule { AlarmSchedule(hour: hour, minute: minute, weekdays: weekdays) }
 }
 
 nonisolated enum AlarmValidationError: Error, Equatable {
@@ -166,8 +170,11 @@ final class AlarmService {
         return alarm
     }
 
-    func update(_ alarm: Alarm, with draft: AlarmDraft) async throws {
+    /// 알람 수정. 편집 중 쌓아 둔 이번만 변경(`draft.exceptionChanges`)도 함께 한꺼번에 저장·예약한다.
+    func update(_ alarm: Alarm, with draft: AlarmDraft, now: Date = .now, calendar: Calendar = .current) async throws {
         let valid = try validate(draft)
+        // 바뀐 요일·시각 기준으로 이번만 변경을 먼저 검증한다(하나라도 잘못이면 아무것도 저장하지 않는다).
+        let staged = try validatedExceptionChanges(valid, now: now, calendar: calendar)
         alarm.title = valid.title
         alarm.hour = valid.hour
         alarm.minute = valid.minute
@@ -182,8 +189,12 @@ final class AlarmService {
         alarm.snoozeLimit = valid.snoozeLimit
         alarm.memoText = valid.memoText
         alarm.memoReadEnabled = valid.memoReadEnabled
+        try applyExceptionChanges(staged, to: alarm, now: now)
         try context.save()
         if !alarm.snoozeEnabled { await clearSnoozes(forAlarm: alarm.id) }
+        for case (let key, .set(let value)) in staged where value.kind == .skip {
+            await clearSnoozes(forAlarm: alarm.id, onDay: key, calendar: calendar)
+        }
         try await sync(alarm)
     }
 

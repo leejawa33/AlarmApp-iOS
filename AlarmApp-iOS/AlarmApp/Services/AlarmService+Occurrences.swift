@@ -97,6 +97,50 @@ extension AlarmService {
         }
     }
 
+    // MARK: 편집 중 쌓아 둔 변경을 저장할 때 적용
+
+    /// 바뀐 요일·시각 기준으로 쌓아 둔 이번만 변경을 검증한다. 알람에서 빠진 요일·이미 지난 날짜의 변경은 조용히 버린다.
+    /// 새 시각이 이미 지났거나 메모가 너무 길면 에러를 던진다.
+    func validatedExceptionChanges(_ draft: AlarmDraft, now: Date, calendar: Calendar) throws -> [Int: ExceptionChange] {
+        guard !draft.exceptionChanges.isEmpty else { return [:] }
+        let selectable = Set(OccurrenceResolver.upcoming(schedule: draft.schedule, exceptions: [], now: now, calendar: calendar).map(\.dayKey))
+        var result: [Int: ExceptionChange] = [:]
+        for (key, change) in draft.exceptionChanges {
+            switch change {
+            case .clear:
+                result[key] = .clear
+            case .set(var value):
+                guard selectable.contains(key) else { continue }
+                value.dayKey = key
+                value.memoText = value.memoText.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard value.memoText.count <= Self.maxMemoLength else { throw AlarmValidationError.memoTooLong(max: Self.maxMemoLength) }
+                if value.kind == .change {
+                    guard OccurrenceResolver.isValidChange(value.hour, value.minute, on: key, now: now, calendar: calendar) else {
+                        throw AlarmValidationError.invalidExceptionTime
+                    }
+                }
+                result[key] = .set(value)
+            }
+        }
+        return result
+    }
+
+    /// 검증된 변경을 저장소에 반영한다(예약은 호출한 쪽의 `sync`가 한 번에 맞춘다).
+    func applyExceptionChanges(_ changes: [Int: ExceptionChange], to alarm: Alarm, now: Date) throws {
+        guard !changes.isEmpty else { return }
+        let alarmID = alarm.id
+        let rows = try context.fetch(FetchDescriptor<DayException>(predicate: #Predicate { $0.alarmID == alarmID }))
+        for (key, change) in changes {
+            let existing = rows.first { $0.dayKey == key }
+            switch change {
+            case .clear:
+                if let existing { context.delete(existing) }
+            case .set(let value):
+                if let existing { existing.value = value } else { context.insert(DayException(alarmID: alarmID, value: value, createdAt: now)) }
+            }
+        }
+    }
+
     // MARK: 예약 계획 적용
 
     /// 알람 하나의 OS 예약을 계획(`SchedulePlan`)에 맞춘다: 반복(예외 요일 제외) + 일회성 대체 예약.
