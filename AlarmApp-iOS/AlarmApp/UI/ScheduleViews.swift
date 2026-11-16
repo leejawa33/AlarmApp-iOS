@@ -1,34 +1,56 @@
 import SwiftUI
 
-/// 이번 주 일정: 앞으로 7일의 울림을 요일순으로 보여 주고, 누르면 이번만 변경 편집으로 간다. (기획서 11.2)
-struct ScheduleBlock: View {
+/// 이번 주 일정 페이지(알람 편집에서 이동): 지금부터 7일의 울림을 요일순으로 보여 주고, 누르면 이번만 변경 편집으로 간다. (기획서 11.2)
+/// 목록은 편집 화면에서 **고르고 있는 요일·시각(저장 전 포함)** 기준이라 요일을 빼거나 더하면 바로 반영된다.
+/// 이번만 변경은 저장된 알람에만 걸 수 있어서, 저장하지 않은 요일·시각 변경이 있으면 목록만 보여 준다.
+struct ScheduleView: View {
     let alarm: Alarm
+    /// 편집 화면에서 지금 고른 요일·시각
+    let schedule: AlarmSchedule
 
     @Environment(AlarmService.self) private var service
     @Environment(Strings.self) private var strings
     @State private var occurrences: [Occurrence] = []
     @State private var editing: Occurrence?
+    @State private var showSaveFirst = false
+
+    private var isDirty: Bool { schedule != alarm.schedule }
 
     var body: some View {
-        Block(label: strings["schedule_title"]) {
-            Text(strings["schedule_description"])
-                .font(Theme.rounded(12, weight: .semibold))
-                .foregroundStyle(Theme.textMuted)
-                .fixedSize(horizontal: false, vertical: true)
-            if occurrences.isEmpty {
-                Text(strings["schedule_empty"])
-                    .font(Theme.rounded(14, weight: .semibold))
+        ScrollView {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(strings["schedule_description"])
+                    .font(Theme.rounded(12, weight: .semibold))
                     .foregroundStyle(Theme.textMuted)
-                    .padding(.vertical, 6)
-            } else {
-                VStack(spacing: 0) {
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 4)
+                if occurrences.isEmpty {
+                    Text(strings["schedule_empty"])
+                        .font(Theme.rounded(14, weight: .semibold))
+                        .foregroundStyle(Theme.textMuted)
+                        .padding(.vertical, 12)
+                } else {
                     ForEach(occurrences) { occurrence in
-                        Button { editing = occurrence } label: { row(occurrence) }
+                        Button {
+                            if isDirty { showSaveFirst = true } else { editing = occurrence }
+                        } label: { row(occurrence) }
                             .buttonStyle(.plain)
-                        if occurrence.id != occurrences.last?.id { Divider() }
                     }
                 }
+                Text(strings["schedule_note_rule"] + "\n" + strings["schedule_note_live"])
+                    .font(Theme.rounded(12, weight: .semibold))
+                    .foregroundStyle(Theme.textMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 4)
+                    .padding(.top, 4)
             }
+            .padding(16)
+        }
+        .background(Theme.bg.ignoresSafeArea())
+        .navigationTitle(strings["schedule_title"])
+        .navigationBarTitleDisplayMode(.inline)
+        .alert(strings["schedule_save_first"], isPresented: $showSaveFirst) {
+            Button(strings["common_ok"]) {}
         }
         .onAppear {
             reload()
@@ -39,13 +61,14 @@ struct ScheduleBlock: View {
             }
             #endif
         }
+        .onChange(of: schedule) { reload() }
         .sheet(item: $editing, onDismiss: reload) { occurrence in
             NavigationStack { ExceptionEditView(alarm: alarm, occurrence: occurrence) }
         }
     }
 
     private func reload() {
-        occurrences = service.upcomingOccurrences(for: alarm)
+        occurrences = OccurrenceResolver.upcoming(schedule: schedule, exceptions: service.exceptions(for: alarm), now: .now)
     }
 
     private func row(_ occurrence: Occurrence) -> some View {
@@ -68,7 +91,10 @@ struct ScheduleBlock: View {
                 .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(Theme.textMuted)
         }
+        .padding(.horizontal, 14)
         .padding(.vertical, 9)
+        .background(Color.white, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.line))
         .contentShape(Rectangle())
     }
 

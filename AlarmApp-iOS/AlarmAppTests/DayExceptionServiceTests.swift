@@ -108,7 +108,7 @@ struct DayExceptionServiceTests {
     @Test func rejectsOutsideSevenDaysAndPast() async throws {
         let alarm = try await makeAlarm()
         await #expect(throws: AlarmValidationError.exceptionUnavailable) {
-            try await service.setException(for: alarm, change(dayKey(plus: 7)))
+            try await service.setException(for: alarm, change(dayKey(plus: 8)))
         }
         await #expect(throws: AlarmValidationError.exceptionUnavailable) {
             try await service.setException(for: alarm, change(dayKey(plus: -1)))
@@ -378,11 +378,11 @@ struct RingMemoTests {
 
     @Test func stringsExistInBothLanguages() {
         let keys = ["schedule_title", "schedule_description", "schedule_empty", "schedule_badge_base", "schedule_badge_changed",
-                    "schedule_badge_skipped", "schedule_row_skipped", "exception_title", "exception_mode", "exception_change", "exception_skip",
+                    "schedule_badge_skipped", "schedule_row_skipped", "schedule_note_rule", "schedule_note_live", "schedule_save_first", "exception_title", "exception_mode", "exception_change", "exception_skip",
                     "exception_time", "exception_base_note", "exception_skip_note", "exception_next_week", "exception_memo",
                     "memo_mode_inherit", "memo_mode_custom", "memo_mode_silent", "exception_memo_placeholder", "exception_clear",
                     "exception_clear_hint", "exception_save", "error_exception_unavailable", "error_exception_time",
-                    "error_memo_too_long", "nextwake_line", "edit_memo", "paid_soon", "edit_memo_placeholder",
+                    "error_memo_too_long", "nextwake_line", "edit_memo", "paid_soon", "edit_memo_placeholder", "edit_memo_voice_hint",
                     "edit_memo_listen",
                     "edit_memo_listen_stop", "ring_memo_title", "ring_memo_reading"]
         for language in Strings.supported {
@@ -400,5 +400,17 @@ struct RingMemoTests {
                 #expect(Strings(language: language).message(for: error) != Strings(language: language)["error_save_failed"])
             }
         }
+    }
+}
+
+struct MemoVoiceTests {
+    @Test func followsSystemVoiceWhenLanguagesMatch() {
+        #expect(MemoSpeaker.usesSystemVoice(appLanguage: "ko", systemLanguages: ["ko-KR", "en-US"]))
+        #expect(MemoSpeaker.usesSystemVoice(appLanguage: "en", systemLanguages: ["en-GB"]))
+    }
+
+    @Test func picksAppLanguageVoiceWhenSystemLanguageDiffers() {
+        #expect(!MemoSpeaker.usesSystemVoice(appLanguage: "en", systemLanguages: ["ko-KR"]))
+        #expect(!MemoSpeaker.usesSystemVoice(appLanguage: "ko", systemLanguages: []))
     }
 }

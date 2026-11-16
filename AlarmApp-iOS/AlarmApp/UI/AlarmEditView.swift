@@ -19,6 +19,7 @@ struct AlarmEditView: View {
     @State private var isSaving = false
     /// 권한이 없어 예약에 실패했을 때 띄우는 안내 (알람은 저장된 상태)
     @State private var showPermissionGuide = false
+    @State private var showSchedule = false
     @State private var speaker = MemoSpeaker()
     @State private var showPromptPicker = false
     @State private var prompts: TranscriptionPrompts?
@@ -42,7 +43,7 @@ struct AlarmEditView: View {
                 soundBlock
                 memoBlock
                 snoozeBlock
-                if let alarm { ScheduleBlock(alarm: alarm) }
+                if alarm != nil { scheduleRow }
                 if alarm != nil { deleteButton }
                 Color.clear.frame(height: 1).id("bottom")
             }
@@ -75,6 +76,11 @@ struct AlarmEditView: View {
             Button(strings["common_ok"]) { if dismissAfterError { dismiss() } }
         }
         .fullScreenCover(isPresented: $showPermissionGuide, onDismiss: { dismiss() }) { PermissionGuideView() }
+        .navigationDestination(isPresented: $showSchedule) {
+            if let alarm {
+                ScheduleView(alarm: alarm, schedule: AlarmSchedule(hour: draft.hour, minute: draft.minute, weekdays: draft.weekdays))
+            }
+        }
         .fullScreenCover(isPresented: $showPreview) {
             RingView(mode: .preview(draft))
         }
@@ -88,6 +94,10 @@ struct AlarmEditView: View {
         .task {
             prompts = try? TranscriptionPrompts.load(from: service.catalog)
             #if DEBUG
+            if DebugLaunch.pendingScheduleScreen || DebugLaunch.pendingExceptionSheet {
+                DebugLaunch.pendingScheduleScreen = false
+                showSchedule = true
+            }
             if DebugLaunch.pendingPromptPicker {
                 DebugLaunch.pendingPromptPicker = false
                 draft.mission = .transcription
@@ -254,6 +264,10 @@ struct AlarmEditView: View {
                     .foregroundStyle(Theme.text)
                     .background(Theme.chipOn, in: RoundedRectangle(cornerRadius: 12))
                 }
+                Text(strings["edit_memo_voice_hint"])
+                    .font(Theme.rounded(11, weight: .semibold))
+                    .foregroundStyle(Theme.textMuted)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: draft.memoReadEnabled)
@@ -274,40 +288,78 @@ struct AlarmEditView: View {
     }
 
 
+    /// 미루기: 사용 토글 + 간격·횟수 제한 두 줄(누르면 목록에서 고른다). 시안 15번과 같다.
     private var snoozeBlock: some View {
         Block(label: strings["edit_snooze"]) {
-            Toggle(isOn: $draft.snoozeEnabled) {
-                Text(strings["edit_snooze_description"])
-                    .font(Theme.rounded(13, weight: .semibold))
-                    .foregroundStyle(Theme.textMuted)
-            }
-            .tint(Theme.sun)
+            Toggle(strings["edit_snooze_use"], isOn: $draft.snoozeEnabled)
+                .font(Theme.rounded(14, weight: .bold))
+                .foregroundStyle(Theme.text)
+                .tint(Theme.sun)
             if draft.snoozeEnabled {
-                Text(strings["edit_snooze_interval"])
-                    .font(Theme.rounded(13, weight: .bold))
-                    .foregroundStyle(Theme.textMuted)
-                    .padding(.top, 4)
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 5), spacing: 8) {
-                    ForEach(SnoozeOption.intervals, id: \.self) { minutes in
-                        Chip(title: strings.format("snooze_interval_value", ["minutes": minutes]),
-                             isSelected: draft.snoozeMinutes == minutes) { draft.snoozeMinutes = minutes }
+                settingRow(title: strings["edit_snooze_interval"],
+                           value: strings.format("snooze_interval_value", ["minutes": draft.snoozeMinutes])) {
+                    Picker("", selection: $draft.snoozeMinutes) {
+                        ForEach(SnoozeOption.intervals, id: \.self) { minutes in
+                            Text(strings.format("snooze_interval_value", ["minutes": minutes])).tag(minutes)
+                        }
                     }
                 }
-                Text(strings["edit_snooze_limit"])
-                    .font(Theme.rounded(13, weight: .bold))
-                    .foregroundStyle(Theme.textMuted)
-                    .padding(.top, 4)
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
-                    ForEach(SnoozeOption.limits, id: \.self) { limit in
-                        Chip(title: limit == SnoozeOption.unlimited
-                                ? strings["snooze_limit_unlimited"]
-                                : strings.format("snooze_limit_value", ["count": limit]),
-                             isSelected: draft.snoozeLimit == limit) { draft.snoozeLimit = limit }
+                settingRow(title: strings["edit_snooze_limit"], value: limitText(draft.snoozeLimit)) {
+                    Picker("", selection: $draft.snoozeLimit) {
+                        ForEach(SnoozeOption.limits, id: \.self) { limit in Text(limitText(limit)).tag(limit) }
                     }
                 }
             }
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: draft.snoozeEnabled)
+    }
+
+    private func limitText(_ limit: Int) -> String {
+        limit == SnoozeOption.unlimited ? strings["snooze_limit_unlimited"] : strings.format("snooze_limit_value", ["count": limit])
+    }
+
+    /// 제목 + 현재 값 › 한 줄. 누르면 메뉴가 열린다.
+    private func settingRow<Options: View>(title: String, value: String, @ViewBuilder options: () -> Options) -> some View {
+        Menu {
+            options()
+        } label: {
+            HStack {
+                Text(title)
+                    .font(Theme.rounded(14, weight: .bold))
+                    .foregroundStyle(Theme.text)
+                Spacer()
+                Text(value)
+                    .font(Theme.rounded(14, weight: .semibold))
+                    .foregroundStyle(Theme.textMuted)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Theme.textMuted)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 11)
+            .background(Color.white, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.line))
+        }
+    }
+
+    /// 이번 주 일정: 별도 페이지로 이동하는 한 줄
+    private var scheduleRow: some View {
+        Button { showSchedule = true } label: {
+            HStack {
+                Text(strings["schedule_title"])
+                    .font(Theme.rounded(15, weight: .bold))
+                    .foregroundStyle(Theme.text)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(Theme.textMuted)
+            }
+            .padding(14)
+            .background(Color.white, in: RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.line))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private var deleteButton: some View {

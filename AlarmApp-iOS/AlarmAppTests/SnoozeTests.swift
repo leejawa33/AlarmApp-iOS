@@ -237,7 +237,7 @@ struct SnoozeTests {
     @Test func stringsExistInBothLanguages() {
         for language in Strings.supported {
             let strings = Strings(language: language)
-            for key in ["edit_snooze", "edit_snooze_description", "edit_snooze_interval", "edit_snooze_limit",
+            for key in ["edit_snooze", "edit_snooze_use", "edit_snooze_interval", "edit_snooze_limit",
                         "snooze_limit_unlimited", "snooze_unavailable"] {
                 #expect(strings[key] != key, "\(language): \(key) 누락")
             }

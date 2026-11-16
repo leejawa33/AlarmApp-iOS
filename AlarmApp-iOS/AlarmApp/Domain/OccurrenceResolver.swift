@@ -24,7 +24,8 @@ nonisolated struct Occurrence: Sendable, Equatable, Identifiable {
 
 /// 기본 일정 계산 → 이번만 변경 적용 → 최종 울림 결정 (기획서 11.3). 같은 결과를 목록과 OS 예약이 함께 쓴다.
 nonisolated enum OccurrenceResolver {
-    /// 선택할 수 있는 범위: 오늘부터 7일
+    /// 선택할 수 있는 범위: 지금부터 7일(168시간) 안에 울리는 회차. 같은 요일은 한 번만 나온다.
+    /// 그래서 오늘 월요일 알람이 이미 울렸다면 다음 주 월요일이 바로 선택 대상이 된다(예: 월 06:30 알람, 월 12:00 → 다음 월 06:30).
     static let windowDays = 7
 
     /// `now` 이후의 회차만 돌려준다. 이미 지난 회차(기본 시각이 `now` 이전)는 포함하지 않는다.
@@ -37,7 +38,8 @@ nonisolated enum OccurrenceResolver {
         let byDay = Dictionary(exceptions.map { ($0.dayKey, $0) }, uniquingKeysWith: { _, last in last })
         let today = calendar.startOfDay(for: now)
         var result: [Occurrence] = []
-        for offset in 0..<windowDays {
+        let windowEnd = calendar.date(byAdding: .day, value: windowDays, to: now) ?? now
+        for offset in 0...windowDays {
             guard let day = calendar.date(byAdding: .day, value: offset, to: today),
                   let weekday = Weekday(rawValue: calendar.component(.weekday, from: day)),
                   schedule.weekdays.contains(weekday),
@@ -47,7 +49,7 @@ nonisolated enum OccurrenceResolver {
             // 기본 시각이 지났어도, 이미 걸린 변경의 새 시각이 아직 남았다면(예: 7시 → 9시, 지금 7시 30분) 그 회차는 유지한다.
             let pendingChange = byDay[key].flatMap { $0.kind == .change
                 ? calendar.date(bySettingHour: $0.hour, minute: $0.minute, second: 0, of: day) : nil }.map { $0 > now } ?? false
-            guard baseFire > now || pendingChange else { continue }
+            guard (baseFire > now && baseFire <= windowEnd) || pendingChange else { continue }
             guard let exception = byDay[key] else {
                 result.append(Occurrence(dayKey: key, baseFire: baseFire, fire: baseFire, state: .base, exception: nil))
                 continue

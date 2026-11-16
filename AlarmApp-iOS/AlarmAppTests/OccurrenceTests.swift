@@ -47,12 +47,27 @@ struct OccurrenceTests {
         #expect(later.first { $0.dayKey == 20261116 } == nil, "지난 회차는 목록에 없다")
     }
 
-    @Test func windowIsSevenDaysAndSkipsPast() {
-        // 수요일 08:00: 오늘 07:00은 이미 지남 → 오늘은 빠지고, 다음 수요일(7일 뒤)과 그 이후는 범위 밖
+    @Test func windowIsSevenDaysFromNowAndSkipsPast() {
+        // 수요일 08:00: 오늘 07:00은 이미 지남. 지금부터 7일(다음 수요일 08:00)까지라 다음 수요일 07:00은 포함된다.
         let now = date(18, 8)
         let list = OccurrenceResolver.upcoming(schedule: schedule(), exceptions: [], now: now, calendar: calendar)
-        #expect(list.map(\.dayKey) == [20261119, 20261120, 20261123, 20261124], "11/18 수요일 0시부터 6일 뒤(11/24)까지")
+        #expect(list.map(\.dayKey) == [20261119, 20261120, 20261123, 20261124, 20261125])
         #expect(list.allSatisfy { $0.state == .base })
+        // 같은 요일은 한 번만 나온다
+        #expect(Set(list.map(\.dayKey)).count == list.count)
+    }
+
+    @Test func nextWeekSameWeekdayAppearsOnceTodaysHasRung() {
+        // 월요일 06:30 알람. 월요일 12:00에는 오늘 회차가 지났으므로 다음 월요일(11/23)을 바꿀 수 있다.
+        let monday = AlarmSchedule(hour: 6, minute: 30, weekdays: [.monday])
+        let after = OccurrenceResolver.upcoming(schedule: monday, exceptions: [], now: date(16, 12), calendar: calendar)
+        #expect(after.map(\.dayKey) == [20261123])
+        // 월요일 05:00(울리기 전)에는 오늘 회차만 보이고, 다음 월요일은 아직 7일 밖이다.
+        let before = OccurrenceResolver.upcoming(schedule: monday, exceptions: [], now: date(16, 5), calendar: calendar)
+        #expect(before.map(\.dayKey) == [20261116])
+        // 화요일이 되면 역시 다음 월요일만 보인다
+        let tuesday = OccurrenceResolver.upcoming(schedule: monday, exceptions: [], now: date(17, 9), calendar: calendar)
+        #expect(tuesday.map(\.dayKey) == [20261123])
     }
 
     @Test func skipRemovesFireButKeepsRow() {

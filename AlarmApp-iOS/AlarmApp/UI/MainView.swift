@@ -43,6 +43,7 @@ struct MainView: View {
             case "new": editing = .new(service.makeDefaultDraft())
             case "quick": showQuickAlarm = true
             case "edit": if let first = alarms.first { editing = .existing(first) }
+            case "schedule": if let first = alarms.first { DebugLaunch.pendingScheduleScreen = true; editing = .existing(first) }
             case "exception": if let first = alarms.first { DebugLaunch.pendingExceptionSheet = true; editing = .existing(first) }
             case "prompts": if let first = alarms.first { DebugLaunch.pendingPromptPicker = true; editing = .existing(first) }
             case "permissions": DebugLaunch.pendingPermissionsScreen = true; showSettings = true

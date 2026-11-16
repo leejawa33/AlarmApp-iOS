@@ -15,7 +15,14 @@ final class MemoSpeaker: NSObject, AVSpeechSynthesizerDelegate {
         synthesizer.delegate = self
     }
 
-    /// - Parameter language: 앱 UI 언어 코드("ko"/"en"). 메모를 번역하지 않고 이 언어의 음성으로 읽는다.
+    /// 음성은 **시스템 설정(말하기 콘텐츠)을 따른다.** 앱 언어가 시스템 언어와 같으면 음성을 지정하지 않아
+    /// 사용자가 설정에서 고른 음성이 쓰이고, 다르면 앱 언어의 기본 음성을 지정한다. (음성 직접 선택은 나중에)
+    static func usesSystemVoice(appLanguage: String, systemLanguages: [String] = Locale.preferredLanguages) -> Bool {
+        guard let first = systemLanguages.first else { return false }
+        return first.lowercased().hasPrefix(appLanguage.lowercased())
+    }
+
+    /// - Parameter language: 앱 UI 언어 코드("ko"/"en"). 메모를 번역하지 않는다.
     func speak(_ text: String, language: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -25,7 +32,9 @@ final class MemoSpeaker: NSObject, AVSpeechSynthesizerDelegate {
         try? session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
         try? session.setActive(true)
         let utterance = AVSpeechUtterance(string: trimmed)
-        utterance.voice = AVSpeechSynthesisVoice(language: language == "en" ? "en-US" : "ko-KR")
+        if !Self.usesSystemVoice(appLanguage: language) {
+            utterance.voice = AVSpeechSynthesisVoice(language: language == "en" ? "en-US" : "ko-KR")
+        }
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate
         setSpeaking(true)
         synthesizer.speak(utterance)

@@ -3,7 +3,7 @@ import Foundation
 
 /// 디버그 빌드 전용 실행 인자 (시뮬레이터 스크린샷·수동 확인용)
 /// - `-demoSeed`: 알람이 없으면 샘플 3개 생성
-/// - `-demoScreen edit|exception|new|quick|settings|permissions|language|prompts|preview|ring|openSettings`: 시작 시 해당 화면 열기
+/// - `-demoScreen edit|schedule|exception|new|quick|settings|permissions|language|prompts|preview|ring|openSettings`: 시작 시 해당 화면 열기
 ///   (`ring`: 첫 알람이 울린 것처럼 실행 화면을 띄운다. 시스템 알람은 안 울리므로 앱이 소리를 낸다)
 /// - `-demoPermission denied`: 알람 권한 상태를 가짜로 주입(값: authorized|denied|notDetermined).
 ///   `denied`/`notDetermined`면 예약이 실제처럼 권한 오류로 실패한다. 안내 화면: `-demoScreen permissionGuide`
@@ -13,6 +13,8 @@ enum DebugLaunch {
     static var seed: Bool { arguments.contains("-demoSeed") }
     /// `-demoScreen exception`: 알람 편집 → 이번 주 일정 → 두 번째 회차의 이번만 변경 시트까지 연다(한 번만, `-demoScrollBottom`과 함께 쓰면 편함).
     static var pendingExceptionSheet = false
+    /// `-demoScreen schedule`: 알람 편집 → 이번 주 일정 페이지까지 연다(한 번만).
+    static var pendingScheduleScreen = false
 
     /// `-demoMemoryScheduler`: 실제 AlarmKit 대신 메모리 스케줄러를 써서(시뮬레이터는 권한이 꺼져 있음) 예약이 성공한 것처럼 확인한다.
     static var useMemoryScheduler: Bool { arguments.contains("-demoMemoryScheduler") }

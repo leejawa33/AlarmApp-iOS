@@ -81,7 +81,6 @@
   "quick_limit": "You can have up to {max} quick alarms at once.",
   "quick_unit": "min",
   "edit_snooze": "Snooze",
-  "edit_snooze_description": "Tap Snooze on the ring screen to ring again after a while. You still need the mission to turn it off.",
   "edit_snooze_interval": "Interval",
   "edit_snooze_limit": "Limit",
   "snooze_interval_value": "{minutes} min",
@@ -133,5 +132,10 @@
   "ring_memo_title": "Today's memo",
   "ring_memo_reading": "Reading",
   "exception_mode": "Just this once",
-  "nextwake_line": "Rings {remaining}"
+  "nextwake_line": "Rings {remaining}",
+  "edit_memo_voice_hint": "The voice follows Settings → Accessibility → Spoken Content → Voices.",
+  "edit_snooze_use": "Use snooze",
+  "schedule_note_rule": "Alarms that already rang today aren't listed. You can change the same weekday from next week's alarm.",
+  "schedule_note_live": "Changing days or time on the edit screen updates this list right away. Save the alarm to change a single day.",
+  "schedule_save_first": "Save the alarm first to change a single day."
 }
