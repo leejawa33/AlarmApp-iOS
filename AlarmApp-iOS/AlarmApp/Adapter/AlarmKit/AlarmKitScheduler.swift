@@ -73,31 +73,31 @@ final class AlarmKitScheduler: AlarmScheduling {
 
     // MARK: 구성
 
-    private func configuration(for alarm: AlarmSnapshot) -> AlarmManager.AlarmConfiguration<RingMetadata> {
-        let title = LocalizedStringResource(stringLiteral: alarm.title)
-        let openApp = AlarmButton(text: LocalizedStringResource(stringLiteral: label("alarm_open_app")),
-                                  textColor: .white, systemImageName: "figure.run")
-        let alert: AlarmPresentation.Alert
+    /// 미션이 있는 알람의 알림: 버튼은 시스템 중지("밀어서 중단") 하나뿐이고, 그 동작(`stopIntent`)이 앱을 열어 미션으로 보낸다.
+    /// 시스템 소리는 중지되지만 실행 화면이 앱 소리를 이어서 내고, 미션을 끝내야 닫힌다.
+    private func missionAlert(title: LocalizedStringResource) -> AlarmPresentation.Alert {
         if #available(iOS 26.1, *) {
-            // 26.1+: 중지 버튼은 시스템 기본
-            alert = AlarmPresentation.Alert(title: title, secondaryButton: openApp, secondaryButtonBehavior: .custom)
-        } else {
-            let stop = AlarmButton(text: LocalizedStringResource(stringLiteral: label("alarm_stop")),
-                                   textColor: .white, systemImageName: "stop.fill")
-            alert = AlarmPresentation.Alert(title: title, stopButton: stop, secondaryButton: openApp, secondaryButtonBehavior: .custom)
+            return AlarmPresentation.Alert(title: title) // 중지 버튼은 시스템 기본
         }
+        let stop = AlarmButton(text: LocalizedStringResource(stringLiteral: label("alarm_stop")),
+                               textColor: .white, systemImageName: "stop.fill")
+        return AlarmPresentation.Alert(title: title, stopButton: stop)
+    }
+
+    private func configuration(for alarm: AlarmSnapshot) -> AlarmManager.AlarmConfiguration<RingMetadata> {
+        let alert = missionAlert(title: LocalizedStringResource(stringLiteral: alarm.title))
         let intent = OpenAlarmIntent()
         intent.alarmID = alarm.id.uuidString
         return .alarm(
             schedule: AlarmKitMapping.schedule(for: alarm.schedule),
             attributes: AlarmAttributes(presentation: AlarmPresentation(alert: alert), metadata: RingMetadata(), tintColor: Theme.cta),
-            secondaryIntent: intent,
+            stopIntent: intent,
             sound: AlarmKitMapping.sound(for: alarm.soundID, in: catalog)
         )
     }
 
     /// 일회성 예약. 퀵알람은 미션이 없으므로 시스템 기본 중지 버튼만 두고(소리도 시스템 기본 알람음),
-    /// 미루기 재울림·이번만 변경 대체 회차는 일반 알람처럼 "미션하러 가기" 버튼을 둔다.
+    /// 미루기 재울림·이번만 변경 대체 회차는 일반 알람처럼 중지 동작이 앱을 연다.
     private func configuration(for alarm: OneShotSnapshot) -> AlarmManager.AlarmConfiguration<RingMetadata> {
         switch alarm.kind {
         case .quick(let minutes):
@@ -116,23 +116,13 @@ final class AlarmKitScheduler: AlarmScheduling {
                 sound: .default
             )
         case .snooze(let alarmTitle, let soundID), .occurrence(let alarmTitle, let soundID):
-            let title = LocalizedStringResource(stringLiteral: alarmTitle)
-            let openApp = AlarmButton(text: LocalizedStringResource(stringLiteral: label("alarm_open_app")),
-                                      textColor: .white, systemImageName: "figure.run")
-            let alert: AlarmPresentation.Alert
-            if #available(iOS 26.1, *) {
-                alert = AlarmPresentation.Alert(title: title, secondaryButton: openApp, secondaryButtonBehavior: .custom)
-            } else {
-                let stop = AlarmButton(text: LocalizedStringResource(stringLiteral: label("alarm_stop")),
-                                       textColor: .white, systemImageName: "stop.fill")
-                alert = AlarmPresentation.Alert(title: title, stopButton: stop, secondaryButton: openApp, secondaryButtonBehavior: .custom)
-            }
+            let alert = missionAlert(title: LocalizedStringResource(stringLiteral: alarmTitle))
             let intent = OpenAlarmIntent()
             intent.alarmID = alarm.id.uuidString
             return .alarm(
                 schedule: AlarmKitMapping.schedule(at: alarm.fireDate),
                 attributes: AlarmAttributes(presentation: AlarmPresentation(alert: alert), metadata: RingMetadata(), tintColor: Theme.cta),
-                secondaryIntent: intent,
+                stopIntent: intent,
                 sound: AlarmKitMapping.sound(for: soundID, in: catalog)
             )
         }

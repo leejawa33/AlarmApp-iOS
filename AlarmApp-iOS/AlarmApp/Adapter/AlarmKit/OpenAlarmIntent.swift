@@ -3,7 +3,7 @@ import AppIntents
 import Foundation
 import Observation
 
-/// 시스템 알람 알림의 "미션하러 가기" 버튼. 앱을 열고 어떤 알람이 울렸는지 기록한다.
+/// 시스템 알람 알림의 중지("밀어서 중단") 동작에 연결된 앱 열기. 앱을 열고 어떤 알람이 울렸는지 기록한다.
 /// 알람 소리는 여기서 멈추지 않는다 — 미션 완료 시 정지한다(5단계).
 struct OpenAlarmIntent: LiveActivityIntent {
     static var title: LocalizedStringResource { "미션하러 가기" }
@@ -48,6 +48,11 @@ final class RingingAlarmCenter {
 
     func clear() {
         ringingAlarmID = nil
+    }
+
+    /// 알람 상태를 OS에서 다시 읽는다. 중지 동작으로 앱이 열린 직후 상태 갱신이 늦어 "아직 울리는 중"으로 남는 경우를 바로잡는다.
+    func refresh() {
+        if let alarms = try? AlarmManager.shared.alarms { update(alarms) }
     }
 
     /// AlarmKit에서 `.alerting` 상태인 알람을 감시한다. 앱 시작 시 한 번 호출.

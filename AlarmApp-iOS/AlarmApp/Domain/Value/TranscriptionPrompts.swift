@@ -36,13 +36,6 @@ nonisolated struct TranscriptionPrompts: Decodable, Sendable {
         let pool = PromptSelection.resolve(selectedIDs, in: self)
         return pool.randomElement(using: &generator)
     }
-
-    static func load(from catalog: AssetCatalog, bundle: Bundle = .main) throws -> TranscriptionPrompts {
-        guard let path = catalog.missions.first(where: { $0.id == MissionType.transcription.rawValue })?.promptsFile,
-              let url = AssetCatalog.resourceURL(for: path, in: bundle)
-        else { throw AssetCatalog.LoadError.catalogNotFound }
-        return try JSONDecoder().decode(TranscriptionPrompts.self, from: Data(contentsOf: url))
-    }
 }
 
 nonisolated struct PromptCategory: Decodable, Sendable, Identifiable, Hashable {

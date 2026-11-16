@@ -226,6 +226,11 @@ final class AlarmService {
         await clearSnoozes(forAlarm: parentID)
     }
 
+    /// 시스템 알람 소리만 멈춘다(반복 예약·미루기 기록은 그대로). 메모를 읽는 동안 앱이 같은 소리를 이어 내서 볼륨을 낮추려는 용도.
+    func silenceSystemRing(_ id: UUID) async {
+        try? await scheduler.stop(id: id)
+    }
+
     /// SwiftData 기준으로 OS 스케줄을 다시 맞춘다. 앱 시작 시 호출.
     /// - 켜진 알람은 모두 다시 schedule(upsert)
     /// - SwiftData에 없거나 꺼진 알람의 스케줄은 cancel

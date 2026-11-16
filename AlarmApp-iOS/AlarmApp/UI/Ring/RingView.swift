@@ -30,6 +30,8 @@ struct RingView: View {
     @State private var speaker = MemoSpeaker()
     /// 이 화면에서 메모를 읽기 시작했는지(미루기 재울림에서 다시 읽지 않도록 기록에 넘긴다)
     @State private var memoSpoken = false
+    @State private var memoStarting = false
+    @Environment(\.scenePhase) private var scenePhase
     @State private var snoozeError: String?
 
     var body: some View {
@@ -45,8 +47,10 @@ struct RingView: View {
         .preferredColorScheme(.light)
         .sensoryFeedback(.success, trigger: phase) { _, new in new == .complete }
         .onAppear(perform: start)
+        .task { await keepSoundAlive() }
         .onDisappear(perform: finish)
         .onChange(of: systemIsAlerting) { updateSound() }
+        .onChange(of: scenePhase) { updateSound(); speakMemoIfNeeded() } // 앱이 아직 활성 전이라 못 읽었으면 활성이 될 때 다시 시도
         .alert(snoozeError ?? "", isPresented: .init(get: { snoozeError != nil }, set: { if !$0 { snoozeError = nil } })) {
             Button(strings["common_ok"]) {}
         }
@@ -186,15 +190,33 @@ struct RingView: View {
         // 맥박 애니메이션은 pulse 값에만 걸어, 버튼이 나중에 추가돼도 레이아웃이 같이 흔들리지 않게 한다.
         withAnimation(.easeInOut(duration: 1).repeatForever(autoreverses: true)) { pulse = true }
         updateSound()
-        speaker.onSpeakingChange = { speaking in sound.setVolume(speaking ? 0.3 : 1) } // 말소리가 알람 소리에 묻히지 않게
+        speaker.onSpeakingChange = { speaking in sound.setVolume(speaking ? RingSoundPlayer.duckedVolume : 1) } // 말소리가 알람 소리에 묻히지 않게
         speakMemoIfNeeded()
     }
 
-    /// 실제 알람이 울려 이 화면에 들어오면 회차당 한 번 메모를 읽는다. 미리보기·미루기 재울림에서는 읽지 않는다.
+    /// 이 화면에 들어오면 회차당 한 번 메모를 읽는다(미리보기 포함). 미루기 재울림에서는 읽지 않는다.
     private func speakMemoIfNeeded() {
-        guard !isPreview, !memoSpoken, !info.memoAlreadyRead, info.memo.shouldRead else { return }
-        memoSpoken = true
-        speaker.speak(info.memo.text, language: strings.language)
+        guard !memoSpoken, !memoStarting, !info.memoAlreadyRead, info.memo.shouldRead, scenePhase == .active else { return }
+        Task { await beginMemoReading() }
+    }
+
+    /// 시스템 알람이 아직 울리고 있으면 앱이 같은 소리를 이어받고 시스템 소리는 멈춘 뒤(앱 소리는 읽는 동안 줄인다) 읽는다.
+    /// 소리 파일이 없으면 시스템 알람을 멈추지 않는다(소리 없이 꺼지는 것 방지).
+    private func beginMemoReading() async {
+        memoStarting = true
+        defer { memoStarting = false }
+        if let id = liveAlarmID, systemIsAlerting, let url = info.soundURL {
+            sound.play(url: url)
+            sound.setVolume(RingSoundPlayer.duckedVolume)
+            await service.silenceSystemRing(id)
+        }
+        for _ in 0..<2 { // 오디오 세션이 아직 안 켜질 수 있어 한 번 더 시도
+            if speaker.speak(info.memo.text, language: strings.language) {
+                memoSpoken = true
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(500))
+        }
     }
 
     private func startMission() {
@@ -211,10 +233,20 @@ struct RingView: View {
     /// 시스템 알람 소리가 멈춰 있으면 앱이 대신 울린다. 미션이 끝나면 멈춘다.
     private func updateSound() {
         guard phase != .complete, !systemIsAlerting, let url = info.soundURL else {
-            sound.stop()
+            sound.stop(keepSession: speaker.isSpeaking)
             return
         }
         sound.play(url: url)
+    }
+
+    /// 실행 화면이 떠 있는 동안 1초마다 시스템 알람 상태를 다시 읽고, 앱 소리가 꺼져 있으면 다시 켠다.
+    /// (밀어서 중단으로 앱이 막 열렸을 때 상태 갱신이 늦거나 오디오 세션이 아직 안 켜져 소리가 안 나는 경우 대비)
+    private func keepSoundAlive() async {
+        while !Task.isCancelled && phase != .complete {
+            try? await Task.sleep(for: .seconds(1))
+            if liveAlarmID != nil { ringing.refresh() }
+            if !sound.isPlaying { updateSound() }
+        }
     }
 
     /// 미리보기에서는 예약 없이 닫기만 한다. 실제 알람은 예약이 성공해야 소리를 멈추고 닫는다.

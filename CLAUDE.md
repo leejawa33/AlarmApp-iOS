@@ -30,15 +30,20 @@ AlarmKit 동작(권한 창, 실제 울림, "미션하러 가기" 버튼)과 퀵�
 - Info.plist는 자동 생성 + `Config/Info.plist` 병합(`NSAlarmKitUsageDescription`). 표시명 등은 `INFOPLIST_KEY_*` 빌드 설정에 있습니다.
 - Swift 설정: `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, Approachable Concurrency. 백그라운드에서 쓰는 값 타입은 `nonisolated`로 표시합니다.
 
-`AlarmApp/` 안의 계층:
+`AlarmApp/` 안의 계층 (헥사고날/계층형. 의존 방향: `UI → Application → Domain`, `Adapter → Application(Port)·Domain`, `App`이 조립. Domain·Application은 AlarmKit·CoreMotion·AVFoundation·SwiftUI를 import하지 않습니다):
 
 | 폴더 | 역할 |
 |---|---|
-| `Domain/` | 순수 로직·값 타입: `QuickAlarmPreset`(퀵알람 분 프리셋·최대 5개), `SnoozeOption`(미루기 간격·횟수 규칙), `DayKey`·`DayExceptionValue`(+`EffectiveMemo`)·`OccurrenceResolver`(지금부터 7일 안의 회차, 같은 요일은 한 번)·`SchedulePlan`(이번만 변경의 OS 예약 계획), `Weekday`(비트마스크), `MissionType`, `AlarmSchedule`(다음 울림·남은 시간), `TranscriptionPrompts`(카테고리·한/영 문장·판정) + `PromptSelection`(알람별 문장 선택 규칙), `ShakeCounter`(흔들기 횟수) |
-| `Persistence/` | SwiftData `@Model`: `Alarm`(원본 데이터), `QuickAlarm`(퀵알람, 울릴 시각만), `SnoozeRecord`(미루기 재울림 예약·몇 번째 미룸인지), `DayException`(이번만 변경), `OccurrenceRecord`(이번만 변경 때문에 일회성으로 대체한 예약 id↔알람·날짜), `AppSettings`(단일 행, 언어) |
-| `Services/` | `AlarmService`(변경의 단일 진입점), `AlarmScheduling`(OS 스케줄러 경계) + `InMemoryAlarmScheduler` / `AlarmKitScheduler`, `OpenAlarmIntent` + `RingingAlarmCenter`(울리는 알람), `MotionShakeDetector`, `RingSoundPlayer`, `MemoSpeaker`(메모 음성), `AlarmService+Occurrences`(이번만 변경·예약 계획 적용) |
-| `Catalog/` | `AssetCatalog`: 번들 카탈로그 로딩 (`MediaAsset`/`SoundAsset`은 이 타입의 별칭) |
-| `Localization/` | `Strings`: `ui_strings_{ko,en}.json` 로딩, `{name}` 치환, 시각·요일·남은 시간·에러 문구 포맷 |
+| `App/` | 조립(Composition root): `AlarmAppApp`(진입점·DI), `ContentView`(루트·실행 화면 fullScreenCover), `DebugLaunch`, `PreviewSupport` |
+| `Domain/Value/` | 순수 로직·값 타입: `QuickAlarmPreset`(퀵알람 분 프리셋·최대 5개), `SnoozeOption`(미루기 간격·횟수 규칙), `DayKey`·`DayExceptionValue`(+`EffectiveMemo`)·`OccurrenceResolver`(지금부터 7일 안의 회차, 같은 요일은 한 번)·`SchedulePlan`(이번만 변경의 OS 예약 계획), `Weekday`(비트마스크), `MissionType`, `AlarmSchedule`(다음 울림·남은 시간), `TranscriptionPrompts`(카테고리·한/영 문장·판정) + `PromptSelection`(알람별 문장 선택 규칙), `ShakeCounter`(흔들기 횟수), `AssetCatalog`(카탈로그 타입 정의, `MediaAsset`/`SoundAsset` 별칭은 `MissionType.swift`) |
+| `Domain/Model/` | SwiftData `@Model`(도메인 엔티티 겸용, Domain이 SwiftData를 import하는 실용적 예외): `Alarm`(원본 데이터), `QuickAlarm`(퀵알람, 울릴 시각만), `SnoozeRecord`(미루기 재울림 예약·몇 번째 미룸인지), `DayException`(이번만 변경), `OccurrenceRecord`(이번만 변경 때문에 일회성으로 대체한 예약 id↔알람·날짜), `AppSettings`(단일 행, 언어) |
+| `Application/` | `AlarmService`(변경의 단일 진입점, 유스케이스) + `AlarmService+Occurrences`(이번만 변경·예약 계획 적용), `AlarmScheduling`(**Port**: OS 스케줄러 계약·`AlarmSnapshot`·`OneShotSnapshot`·`AlarmAuthorization`·`AlarmSchedulerError`) |
+| `Adapter/AlarmKit/` | `AlarmKitScheduler`(Port 구현), `OpenAlarmIntent` + `RingingAlarmCenter`(울리는 알람) |
+| `Adapter/Device/` | `MotionShakeDetector`, `RingSoundPlayer`, `MemoSpeaker`(메모 음성) |
+| `Adapter/Catalog/` | 번들 I/O 확장: `AssetCatalog.load`·`resourceURL`, `TranscriptionPrompts.load` |
+| `Adapter/InMemory/` | `InMemoryAlarmScheduler`(테스트·미리보기용 Port 구현) |
+| `UI/Localization/` | `Strings`: `ui_strings_{ko,en}.json` 로딩, `{name}` 치환, 시각·요일·남은 시간·에러 문구 포맷 |
+| `UI/Theme/` | `Theme`: 디자인 토큰(색·폰트) |
 | `UI/` | `MainView`, `AlarmRowView`, `QuickAlarmView`(퀵알람 시트 + 목록 카드), `AlarmEditView`, `PromptPickerView`(미션 문장 고르기), `ScheduleViews`(`ScheduleView` 이번 주 일정 페이지·`ExceptionEditView`·`NextWakeLine`), `SettingsView`(+`LanguageSettingsView`), `PermissionsView`(권한 화면: 알람 권한 한 줄·상태 배지), `PermissionGuideView`(권한 없음 전체 화면 안내), `LoopingVideoView`(음소거 반복 영상), `Components`(Block·Chip·CTA 버튼·워드마크·`OpenSettingsButton`) |
 | `UI/Ring/` | `RingView`(실행 화면·미리보기 공용, `RingMode.live/.preview`) → `ShakeMissionView` / `TranscriptionMissionView` → `MissionCompleteView` |
 
@@ -48,7 +53,7 @@ AlarmKit 동작(권한 창, 실제 울림, "미션하러 가기" 버튼)과 퀵�
 - 실행 화면 큰 시각은 24시간제 `HH:mm`(`RingView.clock`), 리스트 시각은 오전/오후 형식(`Strings.time`)입니다.
 - Preview는 `.previewEnvironment()` / `PreviewHost`(메모리 저장소 + 샘플)를 씁니다.
 
-시뮬레이터 수동 확인용 DEBUG 실행 인자(`DebugLaunch.swift`): `-demoSeed`(샘플 알람 3개, 첫 알람은 미루기 켬), `-demoScreen new|quick|edit|snooze|schedule|exception|settings|permissions|permissionGuide|language|prompts|preview|ring|openSettings`(실행당 한 번만 동작), `-demoMemoryScheduler`(AlarmKit 대신 메모리 스케줄러로 예약 성공 상태 확인), `-demoScrollAnchor 0.6`/`-demoScrollBottom`(알람 편집 화면 스크롤 위치), `-demoPermission authorized|denied|notDetermined`(알람 권한 상태 주입, `DebugPermissionScheduler`), `-demoMission shake|transcription`(실행 화면에서 바로 미션), `-demoLanguage en|ko`(저장된 언어 설정은 두고 이번 실행만), 언어 확인은 `-AppleLanguages "(en)"`.
+시뮬레이터 수동 확인용 DEBUG 실행 인자(`App/DebugLaunch.swift`): `-demoSeed`(샘플 알람 3개, 첫 알람은 미루기 켬), `-demoScreen new|quick|edit|snooze|schedule|exception|settings|permissions|permissionGuide|language|prompts|preview|ring|openSettings`(실행당 한 번만 동작), `-demoMemoryScheduler`(AlarmKit 대신 메모리 스케줄러로 예약 성공 상태 확인), `-demoScrollAnchor 0.6`/`-demoScrollBottom`(알람 편집 화면 스크롤 위치), `-demoPermission authorized|denied|notDetermined`(알람 권한 상태 주입, `DebugPermissionScheduler`), `-demoMission shake|transcription`(실행 화면에서 바로 미션), `-demoLanguage en|ko`(저장된 언어 설정은 두고 이번 실행만), 언어 확인은 `-AppleLanguages "(en)"`.
 
 ```sh
 xcrun simctl launch booted com.alarmheaven.alarm -demoSeed -demoScreen edit
@@ -61,39 +66,39 @@ xcrun simctl io booted screenshot shot.png
 - 테스트에서 `ModelContainer`는 테스트가 끝날 때까지 변수로 붙잡아 두세요. 헬퍼 함수 안에서 만들고 context만 넘기면 컨테이너가 해제되어 조회 시 SwiftData가 크래시하고, 호스트 앱이 죽어 나머지 테스트가 모두 실패로 보입니다.
 - 테스트는 `ModelConfiguration(isStoredInMemoryOnly: true)`와 `InMemoryAlarmScheduler`(`nextError`로 실패 주입, `authorization`/`authorizationAfterRequest`로 권한 상태 주입)를 씁니다. 날짜 테스트는 `Asia/Seoul` 고정 캘린더를 씁니다. 테스트 호스트로 실행되면 앱은 `InMemoryAlarmScheduler`를 쓰고 AlarmKit을 건드리지 않습니다(`AlarmAppApp.isRunningTests`).
 
-AlarmKit 연동 규칙 (`Services/AlarmKitScheduler.swift`, `Services/OpenAlarmIntent.swift`):
+AlarmKit 연동 규칙 (`Adapter/AlarmKit/AlarmKitScheduler.swift`, `Adapter/AlarmKit/OpenAlarmIntent.swift`):
 - 이름 충돌: 우리 SwiftData 모델도 `Alarm`이라 AlarmKit 쪽은 항상 `AlarmKit.Alarm`으로 씁니다. AlarmKit 타입은 이 두 파일 밖으로 내보내지 않습니다(`AlarmAuthorization`, `AlarmSchedulerError`로 변환).
 - **권한은 알람(AlarmKit) 하나입니다.** 일반 알람·미루기·퀵알람이 모두 시스템 알람이라 알림 권한은 쓰지 않습니다(퀵알람을 로컬 알림으로 만들어 봤지만 무음 모드에서 진동이 없어 AlarmKit으로 되돌렸습니다). 상태는 `AlarmService.authorization`입니다. 권한이 늘면 `PermissionsView`에 줄을 추가합니다.
 - **권한 요청은 사용자 동작(저장·켜기·퀵알람 만들기·`설정 열기`/`허용하기` 버튼)에서만** 합니다. `설정 열기`(`OpenSettingsButton` → `AlarmService.handleOpenSettingsTap()`)는 미결정이면 앱 안 권한 창(거절 시에만 설정 앱), 허용·거부 상태면 바로 `openSettingsURLString`(앱 설정 항목)으로 보냅니다. 알람 권한 스위치로 바로 가는 공개 URL은 없고, `App-prefs:` 같은 비공개 URL은 심사 거절 사유라 쓰지 않습니다. 앱이 활성화되기 전에 요청하면 시스템이 창 없이 바로 거부하므로 `reconcile()`은 권한을 요청하지 않고, 권한이 없으면 아무것도 하지 않습니다.
 - **울리는 중(`state != .scheduled`)인 알람은 schedule/upsert에서 건드리지 않습니다.** cancel하면 소리가 멈춰 미션 없이 꺼집니다. `reconcile()`은 앱 시작·활성화·언어 변경 때 돕니다.
 - 권한 때문에 예약이 실패하면(`AlarmService.isPermissionIssue(_:)`) 단순 알림창 대신 `PermissionGuideView`를 띄웁니다(알람 편집 저장·메인 토글·퀵알람 만들기). `나중에`를 눌러도 알람 데이터는 저장된 상태입니다. 메인 경고 배너는 알람 권한이 꺼졌을 때 표시합니다.
-- 알림 구성: 보조 버튼 = "미션하러 가기"(`OpenAlarmIntent`, `supportedModes = .foreground(.immediate)`), 중지 버튼 = 시스템 기본(iOS 26.1+) / iOS 26.0은 `alarm_stop` 문구로 직접 지정. 버튼 문구는 예약 시점 언어로 고정되므로 언어를 바꾸면 다시 예약합니다.
+- 알림 구성: 버튼은 시스템 중지("밀어서 중단") **하나뿐**이고, 그 동작(`AlarmConfiguration.stopIntent` = `OpenAlarmIntent`, `supportedModes = .foreground(.immediate)`)이 앱을 열어 실행 화면·미션으로 보냅니다(알라미 방식, "미션하러 가기" 보조 버튼은 없앰). 시스템 소리는 중지되고 실행 화면이 앱 소리를 이어서 냅니다. 중지 버튼 문구 = 시스템 기본(iOS 26.1+) / iOS 26.0은 `alarm_stop` 문구로 직접 지정. 실기기 확인 완료(2026-11-16): 밀어서 중단 → Face ID 후 앱이 열려 미션 화면이 뜨고 앱 소리가 이어지며, 메모 읽는 동안 볼륨이 낮아졌다가 복구됩니다(실행 화면이 1초마다 시스템 알람 상태를 다시 읽고 앱 소리가 꺼져 있으면 다시 켭니다, `keepSoundAlive`). 중지 시 앱이 안 열리는 경우의 재울림 안전장치는 아직 없음(필요하면 추가). 퀵알람은 stopIntent 없이 중지 버튼만.
 - 소리: 카탈로그 `sounds[].alarmFile`(.caf)을 `.named(파일명)`으로 씁니다. 없으면 시스템 기본음.
 - 지금 울리는 알람 id는 `RingingAlarmCenter.ringingAlarmID`(Intent + `alarmUpdates`의 `.alerting`)입니다. 값이 있으면 `ContentView`가 `RingView(.live)`를 fullScreenCover로 띄우고, 사용자가 닫을 수 없습니다(바인딩 setter 무시). 미션 완료 → `AlarmService.completeMission`(AlarmKit `stop`, 반복 예약은 유지) → `ringing.clear()`로만 닫힙니다.
 
-퀵알람 규칙 (`Services/AlarmService.swift`, `Services/AlarmScheduling.swift`, `Persistence/QuickAlarm.swift`):
+퀵알람 규칙 (`Application/AlarmService.swift`, `Application/AlarmScheduling.swift`, `Domain/Model/QuickAlarm.swift`):
 - 스케줄러 경계에 일회성 예약 `scheduleOnce(OneShotSnapshot)`이 있습니다(AlarmKit `.fixed(Date)`). 미루기·이번만 변경 회차도 같은 경로를 쓸 예정입니다. 퀵알람 알림은 "미션하러 가기" 버튼 없이 시스템 중지 버튼만 둡니다(제목 `quick_alarm_title`, **소리는 시스템 기본 알람음 `.default`** — 소리 선택 없음, 카탈로그 소리는 33.7초 길이 제한 리스크가 있고 타이머 성격과도 맞지 않음). 무음 모드에서도 시계 앱 알람처럼 소리·진동이 납니다.
 - 생성·취소·정리는 `AlarmService.createQuickAlarm/cancelQuickAlarm/purgeExpiredQuickAlarms`를 거칩니다. 예약이 실패하면 행을 지우고 `schedulingFailed`를 던집니다(실제로 예약되지 않은 퀵알람을 목록에 남기지 않음). 퀵알람은 일반 알람 10개 한도와 별개로 최대 5개입니다.
 - **퀵알람은 미션 실행 화면을 열지 않습니다.** `AlarmService`가 퀵알람 id를 `RingingAlarmCenter.quickAlarmIDs`에 넣어 주고, 센터는 그 id를 `markRinging`·`alertingIDs`에서 제외합니다. 이 id 갱신이 `startMonitoring()`보다 먼저여야 하므로 서비스 `init`에서 채웁니다.
 - `reconcile()`은 퀵알람 행의 id를 stale 취소 대상에서 제외하고(방금 울려 소리 나는 중일 수 있음), 아직 울리지 않은 것만 다시 예약합니다. **울린 뒤 종료되어 OS 알람 목록에서 사라진 행은 바로 지웁니다**(`purgeFiredQuickAlarms`, 알라미처럼 종료하면 메인에서 없어짐; `RingingAlarmCenter.onAlarmsChanged`와 `reconcile()`에서 호출). 아직 울리는 중이면 OS 목록에 남아 있어 지우지 않고, 울린 지 1시간이 지난 행은 안전장치로 정리합니다.
 - 실제 울림·무음 모드 진동·중지 버튼은 실기기에서 확인해야 합니다.
 
-알람 미루기 규칙 (`Services/AlarmService.swift`, `Persistence/SnoozeRecord.swift`, `UI/Ring/RingView.swift`):
+알람 미루기 규칙 (`Application/AlarmService.swift`, `Domain/Model/SnoozeRecord.swift`, `UI/Ring/RingView.swift`):
 - 알람별 설정은 `Alarm.snoozeEnabled/snoozeMinutes/snoozeLimit`(기본 끔·5분·3회, 한도 0 = 무제한)입니다. 편집 화면 "알람 미루기" 블록에서 고릅니다.
 - 실행 화면 `미루기 N분 (남은 M회)` 버튼 → `AlarmService.snooze(ringID:)`: `SnoozeRecord` 저장 → `scheduleOnce`(`.snooze` 종류, 원래 알람 제목·소리, "미션하러 가기" 버튼 포함) → **예약이 성공한 뒤에만** 지금 울림 `stop` + 이전 기록 정리. 예약이 실패하면 소리를 멈추지 않고 에러 문구를 보여 줍니다.
 - 재울림 id는 `SnoozeRecord.id`입니다(원래 알람 id와 다름). 실행 화면은 `AlarmService.resolveRing`/`RingInfo.resolve`로 원래 알람과 이번 회차 미룬 횟수를 찾습니다. 퀵알람과 달리 미루기 재울림은 실행 화면·미션을 엽니다.
 - 미션 완료(`completeMission`)·알람 끄기·삭제·미루기 끄기 때 대기 중인 미루기 예약을 함께 취소합니다. `reconcile()`은 미루기 예약을 stale 취소에서 제외하고 다시 예약하며, 알람이 없어졌거나 꺼졌거나 울린 지 1시간 지난 기록은 지웁니다. 미루기 예약은 일반 알람 10개 한도에 포함되지 않습니다.
 - 미리보기에서는 버튼만 보이고 누르면 예약 없이 닫힙니다. **이번만 변경으로 건너뛴 회차의 미루기 예약 취소는 ④ 구현 때 연결해야 합니다.**
 
-이번만 변경·메모 규칙 (`Services/AlarmService+Occurrences.swift`, `Domain/SchedulePlan.swift`, `Domain/OccurrenceResolver.swift`):
+이번만 변경·메모 규칙 (`Application/AlarmService+Occurrences.swift`, `Domain/Value/SchedulePlan.swift`, `Domain/Value/OccurrenceResolver.swift`):
 - AlarmKit 주간 반복은 한 회차만 바꿀 수 없어서, **이번만 변경이 걸린 요일만 반복에서 빼고 일회성 알람으로 대체**합니다: 변경일(새 시각, 건너뛰기면 없음) + 그 뒤 `SchedulePlan.bridgeWeeks`(4)주치 기본 시각 브리지. 변경일이 지나면 `reconcile()`/`applyPlan`이 그 요일을 반복으로 복구하고 브리지를 취소합니다. **앱을 4주 넘게 안 열면 그 요일만 멈출 수 있습니다.** 예약 한도(실기기 미확인)에 걸리면 `setException`이 변경을 되돌리고 `schedulingFailed`를 던집니다.
 - 알람 예약은 전부 `AlarmService.applyPlan(for:)` 한 경로입니다(`sync`·`reconcile`·예외 변경). 계획은 `OccurrenceResolver`(앞으로 7일, 지난 회차 제외, 새 시각이 남은 변경은 유지)와 `SchedulePlan`(순수 함수)이 정하므로 목록·메인 카드·OS 예약이 같은 계산을 씁니다. 울리는 중(`alertingIDs`/`ringingAlarmID`)인 알람·`OccurrenceRecord`는 건드리지 않습니다.
 - 일회성 대체 예약은 `OccurrenceRecord`(AlarmKit id ↔ 알람·날짜)로 기억하고, 울리면 `resolveRing`/`RingInfo.resolve`가 원래 알람과 그날의 이번만 변경 메모를 찾습니다. 알람 끄기·삭제·요일 변경 시 대체 예약과 예외를 함께 정리하고, 건너뛰기는 그날 대기 중인 미루기도 취소합니다.
 - 이번 주 일정은 알람 편집의 `이번 주 일정 ›` 줄로 이동하는 별도 페이지(`ScheduleView`)입니다. 편집 중인 요일·시각(`draft`, 저장 전)을 즉시 반영해 보여 주고, 거기서 한 이번만 변경은 서비스를 거치지 않고 `AlarmDraft.exceptionChanges`(`ExceptionChange.set/.clear`)에 쌓아 둡니다. 알람 편집의 `저장`(`AlarmService.update(_:with:)`)이 알람 내용과 쌓인 변경을 **한꺼번에** 검증(`validatedExceptionChanges`: 새 시각 지남·메모 길이는 에러, 알람에서 뺀 요일은 조용히 버림)·저장하고 `sync`(`applyPlan`)를 한 번만 돌립니다. 검증 실패 시 아무것도 저장하지 않습니다. 알람 편집은 메인에서 **시트가 아니라 푸시(`navigationDestination(item:)`)**로 열리고(`EditTarget`은 Hashable), 뒤로가기 버튼은 직접 만들어 저장 전 변경이 있으면 "버릴까요?"를 묻습니다(스와이프 뒤로가기는 꺼짐). 알람 미루기는 편집 화면에 `미루기  사용 · 5분 · 3회 ›` 요약 한 줄만 두고(`snoozeRow`), 누르면 별도 페이지 `SnoozeSettingsView`에서 `미루기 사용` 토글과 간격·횟수 칩을 고릅니다(시안 15·16번, `draft`를 Binding으로 고침).
 - 메인 목록 위 한 줄 `NextWakeLine`("8시간 24분 후에 울려요")은 `AlarmService.nextWake()`(켜진 알람의 앞으로 7일 중 가장 빠른 실제 울림, 이번만 변경 반영)까지 남은 시간만 작은 텍스트로 보여 줍니다(카드 아님, 포커스 최소화). 퀵알람·미루기 재울림은 제외.
-- 메모: `Alarm.memoText/memoReadEnabled/memoLanguageRaw`(최대 200자), 이번만 변경은 `MemoMode`(기본/이번만 다른/읽지 않기)로 구분(`EffectiveMemo.resolve`). 실행 화면 진입 후 **회차당 한 번** `MemoSpeaker`(`AVSpeechSynthesizer`)로 읽고, 미션 시작·완료·화면 종료·미루기 때 멈춥니다. 미루기 재울림은 `SnoozeRecord.memoRead`를 이어받아 다시 읽지 않습니다. 미리보기는 읽지 않고 메모 카드만 보여 줍니다. 읽는 동안 앱이 내는 알람 소리 볼륨을 0.3으로 낮춥니다(`RingSoundPlayer.setVolume`). 음성은 **시스템 설정(말하기 콘텐츠)을 따릅니다**: 앱 언어가 시스템 언어와 같으면 `utterance.voice`를 지정하지 않고(`MemoSpeaker.usesSystemVoice`), 다르면 앱 언어 기본 음성을 지정합니다. 앱 안 음성 선택은 후속 과제이고 메모 번역은 없습니다. iOS 26.0~26.1에서 `AVSpeechSynthesisVoice(language:)`가 사용자 선택을 무시한다는 포럼 보고가 있어 음성을 지정하지 않는 경로를 기본으로 합니다(실기기 확인 필요).
+- 메모: `Alarm.memoText/memoReadEnabled/memoLanguageRaw`(최대 200자), 이번만 변경은 `MemoMode`(기본/이번만 다른/읽지 않기)로 구분(`EffectiveMemo.resolve`). 실행 화면 진입 후 **회차당 한 번** `MemoSpeaker`(`AVSpeechSynthesizer`)로 읽고, 미션 시작·완료·화면 종료·미루기 때 멈춥니다. 미루기 재울림은 `SnoozeRecord.memoRead`를 이어받아 다시 읽지 않습니다. 미리보기도 한 번 읽습니다(편집 화면에서 미리 들어보기). 시스템 알람이 아직 울리고 있으면 앱이 같은 소리를 이어받고 시스템 알람은 `silenceSystemRing`으로 멈춘 뒤(반복 예약은 유지), 읽는 동안 앱 소리 볼륨을 0.1로 낮추고 끝나면 복구합니다(`RingSoundPlayer.duckedVolume`). 오디오 세션은 `RingSoundPlayer.activateSession`으로 통일하고, 세션 활성화 실패·앱 비활성 상태면 활성화 때/0.5초 뒤 다시 시도하며 읽기를 시작한 뒤에만 `memoSpoken`을 세웁니다. 읽는 중에는 앱 소리 정지가 세션을 끄지 않습니다. 음성은 **시스템 설정(말하기 콘텐츠)을 따릅니다**: 앱 언어가 시스템 언어와 같으면 `utterance.voice`를 지정하지 않고(`MemoSpeaker.usesSystemVoice`), 다르면 앱 언어 기본 음성을 지정합니다. 앱 안 음성 선택은 후속 과제이고 메모 번역은 없습니다. iOS 26.0~26.1에서 `AVSpeechSynthesisVoice(language:)`가 사용자 선택을 무시한다는 포럼 보고가 있어 음성을 지정하지 않는 경로를 기본으로 합니다(실기기 확인 필요).
 
-실행 화면·미션 규칙 (`UI/Ring/`, `Domain/ShakeCounter.swift`, `Services/MotionShakeDetector.swift`, `Services/RingSoundPlayer.swift`):
+실행 화면·미션 규칙 (`UI/Ring/`, `Domain/Value/ShakeCounter.swift`, `Adapter/Device/MotionShakeDetector.swift`, `Adapter/Device/RingSoundPlayer.swift`):
 - 미리보기도 같은 `RingView`(`.preview(draft)`)입니다. 미션을 해 볼 수 있지만 알람을 정지하지 않고, 완료하면 닫힙니다.
 - 소리: 시스템 알람이 `.alerting`이 아니면(앱을 열자 시스템 소리가 멈춘 경우 등) 앱이 카탈로그 mp3를 `.playback`으로 반복 재생합니다. 미리보기도 앱이 재생합니다. 영상은 항상 음소거입니다.
 - 흔들기: Core Motion `userAcceleration` 크기 ≥ 4.0g(약 39.2 m/s²)를 1회, 0.35초 안의 피크는 무시, 시작 0.5초는 무시(`ShakeCounter`). 센서가 없으면(시뮬레이터) 시스템 흔들기 제스처(`UIWindow.motionEnded`), 시뮬레이터 빌드에서는 진행 링 탭으로도 1회. **임계값은 실기기에서 조정 필요.**

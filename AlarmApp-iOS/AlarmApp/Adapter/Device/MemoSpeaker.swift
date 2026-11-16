@@ -1,6 +1,7 @@
 import AVFoundation
 import Foundation
 import Observation
+import os
 
 /// 메모 읽어주기 (기획서 11.5). 실패해도 미션·알람 정지를 막지 않는다 — 에러는 모두 삼킨다.
 /// 말소리가 알람 소리에 묻히지 않도록 `onSpeakingChange`로 알람 소리를 줄일 수 있게 알린다.
@@ -22,15 +23,22 @@ final class MemoSpeaker: NSObject, AVSpeechSynthesizerDelegate {
         return first.lowercased().hasPrefix(appLanguage.lowercased())
     }
 
+    private static let log = Logger(subsystem: "com.alarmheaven.alarm", category: "MemoSpeaker")
+
     /// - Parameter language: 앱 UI 언어 코드("ko"/"en"). 메모를 번역하지 않는다.
-    func speak(_ text: String, language: String) {
+    /// - Returns: 읽기 시작을 요청했으면 true. 오디오 세션을 못 켰으면 false(호출 쪽이 다시 시도할 수 있다).
+    @discardableResult
+    func speak(_ text: String, language: String) -> Bool {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        guard !trimmed.isEmpty else { return true }
         stop()
-        // 무음 모드에서도 들리도록 playback 카테고리를 쓴다. 다른 앱 소리는 잠시 낮춘다.
-        let session = AVAudioSession.sharedInstance()
-        try? session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
-        try? session.setActive(true)
+        // 무음 모드에서도 들리도록 playback 카테고리를 쓴다. 알람 소리 재생(RingSoundPlayer)과 같은 설정이라 서로 덮어쓰지 않는다.
+        do {
+            try RingSoundPlayer.activateSession()
+        } catch {
+            Self.log.error("audio session activate failed: \(error.localizedDescription)")
+            return false
+        }
         let utterance = AVSpeechUtterance(string: trimmed)
         if !Self.usesSystemVoice(appLanguage: language) {
             utterance.voice = AVSpeechSynthesisVoice(language: language == "en" ? "en-US" : "ko-KR")
@@ -38,6 +46,7 @@ final class MemoSpeaker: NSObject, AVSpeechSynthesizerDelegate {
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate
         setSpeaking(true)
         synthesizer.speak(utterance)
+        return true
     }
 
     func stop() {
